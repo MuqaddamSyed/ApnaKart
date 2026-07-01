@@ -12,6 +12,7 @@ class Product {
   final int stockQty;
   final String? unit;
   final bool isAvailable;
+  final bool adminManaged;
 
   Product({
     required this.id,
@@ -26,6 +27,7 @@ class Product {
     this.stockQty = 0,
     this.unit,
     this.isAvailable = true,
+    this.adminManaged = false,
   });
 
   factory Product.fromMap(Map<String, dynamic> m) => Product(
@@ -41,6 +43,7 @@ class Product {
         stockQty: m['stock_qty'] as int? ?? 0,
         unit: m['unit'] as String?,
         isAvailable: m['is_available'] as bool? ?? true,
+        adminManaged: m['admin_managed'] as bool? ?? false,
       );
 
   Map<String, dynamic> toMap() => {

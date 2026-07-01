@@ -43,11 +43,11 @@ class _State extends ConsumerState<OrderHistoryScreen> {
                   padding: const EdgeInsets.all(16),
                   children: _orders.map((o) => Card(
                         child: ListTile(
-                          title: Text('Order #${o.id.substring(0, 8)}'),
+                          title: Text('Order #${(o.sessionId ?? o.id).substring(0, 8)}'),
                           subtitle: Text('${formatDate(o.placedAt)}\n${formatRupees(o.total)}'),
                           isThreeLine: true,
                           trailing: StatusBadge(status: o.status),
-                          onTap: () => context.push('${Routes.tracking}/${o.id}'),
+                          onTap: () => context.push('${Routes.tracking}/${o.sessionId ?? o.id}'),
                         ),
                       )).toList(),
                 ),

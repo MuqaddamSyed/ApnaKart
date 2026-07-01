@@ -22,9 +22,10 @@ enum OrderStatus {
   }
 }
 
-/// Maps the `orders` table.
+/// Maps the `orders` table (one per supplier per session).
 class Order {
   final String id;
+  final String? sessionId;
   final String customerId;
   final String supplierId;
   final String? deliveryId;
@@ -42,8 +43,17 @@ class Order {
   final DateTime? deliveredAt;
   final List<OrderItem> items;
 
+  // Joined fields (populated when fetched with relations).
+  final String? supplierName;
+  final String? supplierPhone;
+  final String? supplierAddress;
+  final double? supplierLat;
+  final double? supplierLng;
+  final String? customerPhone;
+
   Order({
     required this.id,
+    this.sessionId,
     required this.customerId,
     required this.supplierId,
     this.deliveryId,
@@ -60,25 +70,46 @@ class Order {
     required this.placedAt,
     this.deliveredAt,
     this.items = const [],
+    this.supplierName,
+    this.supplierPhone,
+    this.supplierAddress,
+    this.supplierLat,
+    this.supplierLng,
+    this.customerPhone,
   });
 
-  factory Order.fromMap(Map<String, dynamic> m, {List<OrderItem> items = const []}) => Order(
-        id: m['id'] as String,
-        customerId: m['customer_id'] as String,
-        supplierId: m['supplier_id'] as String,
-        deliveryId: m['delivery_id'] as String?,
-        status: OrderStatus.from(m['status'] as String? ?? 'placed'),
-        paymentMethod: m['payment_method'] as String? ?? 'COD',
-        paymentStatus: m['payment_status'] as String? ?? 'pending',
-        subtotal: (m['subtotal'] as num?)?.toDouble() ?? 0,
-        deliveryFee: (m['delivery_fee'] as num?)?.toDouble() ?? 20,
-        total: (m['total'] as num?)?.toDouble() ?? 0,
-        deliveryAddress: m['delivery_address'] as String?,
-        deliveryLat: (m['delivery_lat'] as num?)?.toDouble(),
-        deliveryLng: (m['delivery_lng'] as num?)?.toDouble(),
-        notes: m['notes'] as String?,
-        placedAt: DateTime.tryParse(m['placed_at']?.toString() ?? '') ?? DateTime.now(),
-        deliveredAt: m['delivered_at'] != null ? DateTime.tryParse(m['delivered_at'].toString()) : null,
-        items: items,
-      );
+  factory Order.fromMap(Map<String, dynamic> m, {List<OrderItem> items = const []}) {
+    final sup = m['suppliers'] as Map<String, dynamic>?;
+    final supUser = sup?['users'] as Map<String, dynamic>?;
+    final cust = m['customers'] as Map<String, dynamic>?;
+    final custUser = cust?['users'] as Map<String, dynamic>?;
+    return Order(
+      id: m['id'] as String,
+      sessionId: m['session_id'] as String?,
+      customerId: m['customer_id'] as String,
+      supplierId: m['supplier_id'] as String,
+      deliveryId: m['delivery_id'] as String?,
+      status: OrderStatus.from(m['status'] as String? ?? 'placed'),
+      paymentMethod: m['payment_method'] as String? ?? 'COD',
+      paymentStatus: m['payment_status'] as String? ?? 'pending',
+      subtotal: (m['subtotal'] as num?)?.toDouble() ?? 0,
+      deliveryFee: (m['delivery_fee'] as num?)?.toDouble() ?? 20,
+      total: (m['total'] as num?)?.toDouble() ?? 0,
+      deliveryAddress: m['delivery_address'] as String?,
+      deliveryLat: (m['delivery_lat'] as num?)?.toDouble(),
+      deliveryLng: (m['delivery_lng'] as num?)?.toDouble(),
+      notes: m['notes'] as String?,
+      placedAt: DateTime.tryParse(m['placed_at']?.toString() ?? '') ?? DateTime.now(),
+      deliveredAt: m['delivered_at'] != null
+          ? DateTime.tryParse(m['delivered_at'].toString())
+          : null,
+      items: items,
+      supplierName: sup?['shop_name'] as String?,
+      supplierPhone: supUser?['phone'] as String?,
+      supplierAddress: sup?['address'] as String?,
+      supplierLat: (sup?['lat'] as num?)?.toDouble(),
+      supplierLng: (sup?['lng'] as num?)?.toDouble(),
+      customerPhone: custUser?['phone'] as String?,
+    );
+  }
 }

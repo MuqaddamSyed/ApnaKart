@@ -7,6 +7,11 @@ class OrderItem {
   final double unitPrice;
   String? imageUrl;
   String? unit;
+  String? supplierId;
+
+  // Packing screen: set by supplier during order preparation.
+  bool? isAvailable;
+  int? availableQty;
 
   OrderItem({
     this.id,
@@ -16,9 +21,16 @@ class OrderItem {
     required this.unitPrice,
     this.imageUrl,
     this.unit,
+    this.supplierId,
+    this.isAvailable,
+    this.availableQty,
   });
 
   double get totalPrice => unitPrice * quantity;
+
+  /// Effective quantity/total after packing adjustments.
+  int get effectiveQty => availableQty ?? quantity;
+  double get effectiveTotal => unitPrice * effectiveQty;
 
   factory OrderItem.fromMap(Map<String, dynamic> m) => OrderItem(
         id: m['id'] as String?,
@@ -26,6 +38,9 @@ class OrderItem {
         productName: m['product_name']?.toString() ?? '',
         quantity: m['quantity'] as int,
         unitPrice: (m['unit_price'] as num).toDouble(),
+        supplierId: m['supplier_id'] as String?,
+        isAvailable: m['is_available'] as bool?,
+        availableQty: m['available_qty'] as int?,
       );
 
   Map<String, dynamic> toInsert(String orderId) => {
@@ -36,7 +51,7 @@ class OrderItem {
         'total_price': totalPrice,
       };
 
-  OrderItem copyWith({int? quantity}) => OrderItem(
+  OrderItem copyWith({int? quantity, bool? isAvailable, int? availableQty}) => OrderItem(
         id: id,
         productId: productId,
         productName: productName,
@@ -44,5 +59,8 @@ class OrderItem {
         unitPrice: unitPrice,
         imageUrl: imageUrl,
         unit: unit,
+        supplierId: supplierId,
+        isAvailable: isAvailable ?? this.isAvailable,
+        availableQty: availableQty ?? this.availableQty,
       );
 }

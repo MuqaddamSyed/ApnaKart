@@ -29,6 +29,7 @@ class _State extends ConsumerState<EditProductScreen> {
   File? _image;
   String? _imageUrl;
   bool _saving = false;
+  bool _adminManaged = false;
 
   @override
   void initState() { super.initState(); if (widget.productId != null) _loadExisting(); }
@@ -46,6 +47,7 @@ class _State extends ConsumerState<EditProductScreen> {
         : AppConstants.productCategories.first;
     _available = p.isAvailable;
     _imageUrl = p.imageUrl;
+    _adminManaged = p.adminManaged;
     setState(() {});
   }
 
@@ -93,15 +95,15 @@ class _State extends ConsumerState<EditProductScreen> {
             .uploadProductImage(_image!, '${DateTime.now().millisecondsSinceEpoch}.jpg');
       }
       final data = {
-        'supplier_id': uid,
-        'name': _name.text.trim(),
-        'category': _category,
-        'unit': _unit,
-        'mrp': mrp,
+        if (!_adminManaged) 'supplier_id': uid,
+        if (!_adminManaged) 'name': _name.text.trim(),
+        if (!_adminManaged) 'category': _category,
+        if (!_adminManaged) 'unit': _unit,
+        if (!_adminManaged) 'mrp': mrp,
         'sale_price': sale,
-        'stock_qty': int.tryParse(_stock.text) ?? 0,
+        if (!_adminManaged) 'stock_qty': int.tryParse(_stock.text) ?? 0,
         'is_available': _available,
-        'image_url': imageUrl,
+        if (!_adminManaged && imageUrl != null) 'image_url': imageUrl,
       };
       if (widget.productId == null) {
         await supabase.from('products').insert(data);
@@ -123,29 +125,67 @@ class _State extends ConsumerState<EditProductScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          GestureDetector(
-            onTap: _pick,
-            child: Container(
+          // Image: locked for admin-managed products.
+          if (_adminManaged)
+            Container(
               height: 140,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(12),
-                image: _image != null
-                    ? DecorationImage(image: FileImage(_image!), fit: BoxFit.cover)
-                    : (_imageUrl != null
-                        ? DecorationImage(image: NetworkImage(_imageUrl!), fit: BoxFit.cover)
-                        : null),
+                image: _imageUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(_imageUrl!), fit: BoxFit.cover)
+                    : null,
               ),
-              child: (_image == null && _imageUrl == null)
-                  ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.add_a_photo, color: AppColors.textMuted),
-                      Text('Add photo', style: TextStyle(color: AppColors.textMuted)),
-                    ]))
+              child: _imageUrl == null
+                  ? const Center(
+                      child: Text('Image managed by admin',
+                          style: TextStyle(color: AppColors.textMuted)))
                   : null,
+            )
+          else
+            GestureDetector(
+              onTap: _pick,
+              child: Container(
+                height: 140,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  image: _image != null
+                      ? DecorationImage(
+                          image: FileImage(_image!), fit: BoxFit.cover)
+                      : (_imageUrl != null
+                          ? DecorationImage(
+                              image: NetworkImage(_imageUrl!),
+                              fit: BoxFit.cover)
+                          : null),
+                ),
+                child: (_image == null && _imageUrl == null)
+                    ? const Center(
+                        child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                          Icon(Icons.add_a_photo, color: AppColors.textMuted),
+                          Text('Add photo',
+                              style: TextStyle(color: AppColors.textMuted)),
+                        ]))
+                    : null,
+              ),
             ),
-          ),
           const SizedBox(height: 16),
-          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Product name')),
+          // Name: locked for admin-managed products.
+          if (_adminManaged)
+            InputDecorator(
+              decoration: const InputDecoration(
+                  labelText: 'Product name', filled: true),
+              child: Text(_name.text,
+                  style: const TextStyle(color: AppColors.textMuted)),
+            )
+          else
+            TextField(
+                controller: _name,
+                decoration:
+                    const InputDecoration(labelText: 'Product name')),
           const SizedBox(height: 12),
           DropdownButtonFormField(
             value: _category,

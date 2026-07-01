@@ -29,8 +29,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     _prefillAddress();
   }
 
-  /// Pre-fill the delivery address + location with the customer's saved defaults
-  /// so the order carries coordinates the delivery agent can navigate to.
   Future<void> _prefillAddress() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
@@ -54,13 +52,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final cart = ref.read(cartProvider);
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) {
-      // Login is required to place an order; send them to sign in.
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please sign in to place your order')));
       context.go(Routes.login);
       return;
     }
-    if (cart.supplierId == null) return;
+    if (cart.isEmpty) return;
     if (_addressCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please enter a delivery address')));
@@ -68,26 +65,25 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     }
     setState(() => _placing = true);
     try {
-      // Best-effort: grab a fresh GPS fix at checkout; fall back to the saved
-      // location from onboarding. Either way the agent gets coordinates.
       var lat = _lat;
       var lng = _lng;
       try {
         final loc = await ref.read(locationServiceProvider).getCurrentLocation();
         lat = loc.latitude;
         lng = loc.longitude;
-      } catch (_) {/* keep saved location if GPS unavailable/denied */}
-      final orderId = await ref.read(orderServiceProvider).placeOrder(
+      } catch (_) {}
+
+      final sessionId = await ref.read(orderServiceProvider).placeMultiSupplierOrder(
             customerId: uid,
-            supplierId: cart.supplierId!,
-            items: cart.items.values.toList(),
-            address: _addressCtrl.text.trim(),
+            deliveryAddress: _addressCtrl.text.trim(),
             lat: lat,
             lng: lng,
+            supplierItems: cart.bySupplier,
           );
       ref.read(cartProvider.notifier).clear();
       if (!mounted) return;
-      context.go('${Routes.tracking}/$orderId');
+      // Use push (not go) so the customer can press back to return home.
+      context.push('${Routes.tracking}/$sessionId');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
     } finally {
@@ -102,7 +98,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     const fee = AppConstants.flatDeliveryFee;
     final total = subtotal + fee;
 
-    if (cart.count == 0) {
+    if (cart.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Cart')),
         body: const Center(child: Text('Your cart is empty')),
@@ -113,14 +109,31 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          ...cart.items.values.map((i) => Card(
-                child: ListTile(
-                  title: Text(i.productName),
-                  subtitle: Text('${i.unit ?? ''}  ${formatRupees(i.unitPrice)}'),
-                  trailing: Text('x${i.quantity}   ${formatRupees(i.totalPrice)}',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+          // Items grouped by supplier.
+          ...cart.bySupplier.entries.expand((entry) {
+            final supplierId = entry.key;
+            final items = entry.value;
+            return [
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Text(
+                  'Shop · ${supplierId.substring(0, 8)}',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600),
                 ),
-              )),
+              ),
+              ...items.map((i) => Card(
+                    child: ListTile(
+                      title: Text(i.productName),
+                      subtitle: Text('${i.unit ?? ''}  ${formatRupees(i.unitPrice)}'),
+                      trailing: Text('x${i.quantity}   ${formatRupees(i.totalPrice)}',
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  )),
+            ];
+          }),
           const SizedBox(height: 12),
           Row(children: [
             const Text('Delivery address',
@@ -130,8 +143,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               icon: const Icon(Icons.bookmark_border, size: 18),
               label: const Text('Saved addresses'),
               onPressed: () async {
-                final picked = await context.push<bool>(
-                    '${Routes.addresses}?select=1');
+                final picked =
+                    await context.push<bool>('${Routes.addresses}?select=1');
                 await ref.read(currentAddressProvider.notifier).refresh();
                 final a = ref.read(currentAddressProvider);
                 if (picked == true && a != null) {
@@ -182,7 +195,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           child: ElevatedButton(
             onPressed: _placing ? null : _placeOrder,
             child: _placing
-                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
                 : Text('Place Order  •  ${formatRupees(total)}'),
           ),
         ),
@@ -195,8 +212,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(l, style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
-            Text(v, style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
+            Text(l,
+                style: TextStyle(
+                    fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
+            Text(v,
+                style: TextStyle(
+                    fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
           ],
         ),
       );

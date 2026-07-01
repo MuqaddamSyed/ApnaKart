@@ -49,8 +49,8 @@ class DeliveryApp extends StatelessWidget {
             )),
         GoRoute(path: Routes.onboarding, builder: (_, __) => const DeliveryOnboardingScreen()),
         GoRoute(path: Routes.status, builder: (_, __) => const DeliveryShell()),
-        GoRoute(path: '${Routes.active}/:orderId',
-            builder: (_, s) => ActiveDeliveryScreen(orderId: s.pathParameters['orderId']!)),
+        GoRoute(path: '${Routes.active}/:sessionId',
+            builder: (_, s) => ActiveDeliveryScreen(sessionId: s.pathParameters['sessionId']!)),
       ],
     );
     return MaterialApp.router(

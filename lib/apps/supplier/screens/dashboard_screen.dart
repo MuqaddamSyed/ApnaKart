@@ -20,9 +20,12 @@ class _State extends ConsumerState<DashboardScreen> {
   bool _hasShopProfile = false;
   List<Order> _orders = [];
   bool _loading = true;
+  double _todayEarnings = 0;
 
   @override
   void initState() { super.initState(); _load(); }
+
+  double _todayEarnings = 0;
 
   Future<void> _load() async {
     final uid = supabase.auth.currentUser?.id;
@@ -31,9 +34,10 @@ class _State extends ConsumerState<DashboardScreen> {
       _hasShopProfile = shop != null;
       _approved = shop?['is_verified'] as bool? ?? false;
       _open = shop?['is_open'] as bool? ?? true;
-      _orders = _approved
-          ? await ref.read(orderServiceProvider).getOrdersBySupplier(uid)
-          : [];
+      if (_approved) {
+        _orders = await ref.read(orderServiceProvider).getOrdersBySupplier(uid);
+        _todayEarnings = await ref.read(orderServiceProvider).getTodaySupplierEarnings(uid);
+      }
     }
     setState(() => _loading = false);
   }
@@ -55,11 +59,6 @@ class _State extends ConsumerState<DashboardScreen> {
         sameDay(o.placedAt) &&
         o.status != OrderStatus.cancelled &&
         o.status != OrderStatus.returned).toList();
-    // Today's amount = product earnings (subtotal) of DELIVERED orders only —
-    // the delivery charge belongs to the agent, not the shop.
-    final amount = todaysOrders
-        .where((o) => o.status == OrderStatus.delivered)
-        .fold<double>(0, (s, o) => s + o.subtotal);
     final pending = _orders.where((o) => o.status == OrderStatus.placed).length;
 
     return Scaffold(
@@ -104,7 +103,7 @@ class _State extends ConsumerState<DashboardScreen> {
                   Row(children: [
                     _stat("Today's Orders", '${todaysOrders.length}', Icons.shopping_bag),
                     const SizedBox(width: 12),
-                    _stat("Today's Amount", formatRupees(amount), Icons.payments),
+                    _stat("Today's Earnings", formatRupees(_todayEarnings), Icons.payments),
                   ]),
                   const SizedBox(height: 12),
                   _stat('Pending Orders', '$pending', Icons.pending_actions, full: true,

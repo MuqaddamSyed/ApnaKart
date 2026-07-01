@@ -53,8 +53,8 @@ class CustomerApp extends StatelessWidget {
               AddressesScreen(selectMode: s.uri.queryParameters['select'] == '1'),
         ),
         GoRoute(
-          path: '${Routes.tracking}/:orderId',
-          builder: (_, s) => OrderTrackingScreen(orderId: s.pathParameters['orderId']!),
+          path: '${Routes.tracking}/:sessionId',
+          builder: (_, s) => OrderTrackingScreen(sessionId: s.pathParameters['sessionId']!),
         ),
         GoRoute(path: Routes.history, builder: (_, __) => const OrderHistoryScreen()),
         GoRoute(path: Routes.profile, builder: (_, __) => const ProfileScreen()),
