@@ -1,0 +1,40 @@
+name: quickkart
+description: Hyperlocal quick-commerce platform for Tier 2/3 towns in India (4 apps, one codebase).
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.0.0
+  flutter_riverpod: ^2.4.0
+  flutter_map: ^6.0.0          # OpenStreetMap tiles
+  latlong2: ^0.9.0
+  hive_flutter: ^1.1.0
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.1.3
+  cached_network_image: ^3.3.0
+  image_picker: ^1.0.0
+  geolocator: ^11.0.0
+  url_launcher: ^6.2.0         # tap-to-call
+  intl: ^0.18.0               # currency formatting
+  shimmer: ^3.0.0             # skeleton loading
+  fl_chart: ^0.65.0           # admin charts
+  go_router: ^13.0.0
+  flutter_dotenv: ^5.1.0
+  google_fonts: ^6.1.0
+
+dev_dependencies:
+  flutter_lints: ^3.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
+    - assets/images/
+    - assets/images/categories/

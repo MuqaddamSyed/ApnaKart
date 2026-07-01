@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "475945148349",
+    "project_id": "apnakart-f2322",
+    "storage_bucket": "apnakart-f2322.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:475945148349:android:631f85598bd8945ae27cd4",
+        "android_client_info": {
+          "package_name": "com.quickkart.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4n5CrRBDqk3typoVOJEAo8ijXm1McQIs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:475945148349:android:4964c47cf1e11962e27cd4",
+        "android_client_info": {
+          "package_name": "com.quickkart.supplier"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4n5CrRBDqk3typoVOJEAo8ijXm1McQIs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

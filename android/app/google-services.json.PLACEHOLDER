@@ -1,0 +1,19 @@
+REPLACE THIS FILE (or use per-flavor files).
+
+The three Android flavors have DIFFERENT applicationIds:
+  customer -> com.quickkart.customer
+  supplier -> com.quickkart.supplier
+  delivery -> com.quickkart.delivery
+
+In Firebase Console, add all three package names to your project, then either:
+  (a) download ONE google-services.json containing all three apps and save it as
+      android/app/google-services.json
+  (b) OR save a per-flavor file at
+      android/app/src/customer/google-services.json
+      android/app/src/supplier/google-services.json
+      android/app/src/delivery/google-services.json
+
+The build will FAIL until a valid google-services.json (matching the flavor's
+applicationId) is present, because the google-services plugin is applied. To build
+WITHOUT Firebase for now, comment out the two com.google.gms.google-services plugin
+lines (settings.gradle + app/build.gradle) and the firebase-messaging dependency.
