@@ -8,7 +8,6 @@ import '../../../shared/models/order.dart';
 import '../../../shared/models/order_session.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/services/supabase_client.dart';
-import '../../../shared/widgets/status_stepper.dart';
 
 /// Live tracking screen for a session (multi-supplier order).
 /// Shows status stepper, OSM map with agent location, and

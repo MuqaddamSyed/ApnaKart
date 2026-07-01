@@ -25,8 +25,6 @@ class _State extends ConsumerState<DashboardScreen> {
   @override
   void initState() { super.initState(); _load(); }
 
-  double _todayEarnings = 0;
-
   Future<void> _load() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid != null) {

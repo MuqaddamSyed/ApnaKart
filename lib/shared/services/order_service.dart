@@ -220,6 +220,7 @@ class OrderService {
         .from('orders')
         .stream(primaryKey: ['id'])
         .eq('id', orderId)
+        .where((rows) => rows.isNotEmpty)
         .map((rows) => Order.fromMap(rows.first));
   }
 
@@ -228,6 +229,7 @@ class OrderService {
         .from('order_sessions')
         .stream(primaryKey: ['id'])
         .eq('id', sessionId)
+        .where((rows) => rows.isNotEmpty)
         .map((rows) => OrderSession.fromMap(rows.first));
   }
 
