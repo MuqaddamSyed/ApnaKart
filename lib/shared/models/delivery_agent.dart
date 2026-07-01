@@ -5,6 +5,7 @@ class DeliveryAgent {
   final bool isAvailable;
   final double? currentLat;
   final double? currentLng;
+  final String? name;
   final String? vehicleType;
   final String? address;
   final int totalDeliveries;
@@ -16,6 +17,7 @@ class DeliveryAgent {
     this.isAvailable = false,
     this.currentLat,
     this.currentLng,
+    this.name,
     this.vehicleType,
     this.address,
     this.totalDeliveries = 0,
@@ -28,6 +30,7 @@ class DeliveryAgent {
         isAvailable: m['is_available'] as bool? ?? false,
         currentLat: (m['current_lat'] as num?)?.toDouble(),
         currentLng: (m['current_lng'] as num?)?.toDouble(),
+        name: m['name'] as String?,
         vehicleType: m['vehicle_type'] as String?,
         address: m['address'] as String?,
         totalDeliveries: m['total_deliveries'] as int? ?? 0,

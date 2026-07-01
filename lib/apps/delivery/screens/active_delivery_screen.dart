@@ -9,6 +9,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/services/supabase_client.dart';
+import '../../../shared/utils/formatters.dart';
 
 /// Two-step delivery: navigate to supplier -> picked up -> navigate to
 /// customer -> collect cash -> enter OTP -> mark delivered.
@@ -21,14 +22,34 @@ class ActiveDeliveryScreen extends ConsumerStatefulWidget {
 }
 
 class _State extends ConsumerState<ActiveDeliveryScreen> {
-  final _otpCtrl = TextEditingController();
   Timer? _ping;
   String? _error;
+  double? _supLat, _supLng;
+  String? _supName, _supAddress;
 
   @override
   void initState() {
     super.initState();
     _startPinging();
+    _loadSupplier();
+  }
+
+  /// Real pickup location (the shop) for the "navigate to supplier" leg.
+  Future<void> _loadSupplier() async {
+    final row = await supabase
+        .from('orders')
+        .select('suppliers(shop_name, lat, lng, address)')
+        .eq('id', widget.orderId)
+        .maybeSingle();
+    final s = row?['suppliers'] as Map<String, dynamic>?;
+    if (s != null && mounted) {
+      setState(() {
+        _supName = s['shop_name'] as String?;
+        _supLat = (s['lat'] as num?)?.toDouble();
+        _supLng = (s['lng'] as num?)?.toDouble();
+        _supAddress = s['address'] as String?;
+      });
+    }
   }
 
   /// Push location every 10s (AppConstants.agentPingSeconds).
@@ -46,12 +67,6 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
   @override
   void dispose() { _ping?.cancel(); super.dispose(); }
 
-  Future<void> _call(String? phone) async {
-    if (phone == null) return;
-    final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) launchUrl(uri);
-  }
-
   /// Hand off turn-by-turn navigation to the phone's installed maps app.
   /// Free — no Maps API key. Opens Google/Apple/OSM maps with directions.
   Future<void> _navigate(LatLng dest) async {
@@ -65,12 +80,22 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
   Future<void> _markPickedUp() =>
       ref.read(orderServiceProvider).updateOrderStatus(widget.orderId, OrderStatus.on_the_way);
 
-  Future<void> _markDelivered() async {
-    // The verify-delivery-otp Edge Function verifies the hashed OTP and, on
-    // match, atomically marks delivered + increments agent earnings server-side.
-    final ok = await ref.read(orderServiceProvider)
-        .confirmDelivery(widget.orderId, _otpCtrl.text.trim());
-    if (!ok) { setState(() => _error = 'OTP does not match'); return; }
+  Future<void> _markArrived() =>
+      ref.read(orderServiceProvider).markArrived(widget.orderId);
+
+  /// Customer accepted → complete + credit earnings (no OTP).
+  Future<void> _markAccepted() async {
+    try {
+      await ref.read(orderServiceProvider).completeDelivery(widget.orderId);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      setState(() => _error = 'Could not complete: $e');
+    }
+  }
+
+  /// Customer refused the order at the door.
+  Future<void> _markRejected() async {
+    await ref.read(orderServiceProvider).rejectByCustomer(widget.orderId);
     if (mounted) Navigator.pop(context);
   }
 
@@ -83,10 +108,12 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
         builder: (context, snap) {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final o = snap.data!;
-          final toCustomer = o.status == OrderStatus.on_the_way;
-          final target = toCustomer
-              ? LatLng(o.deliveryLat ?? 14.47, o.deliveryLng ?? 75.92)
-              : const LatLng(14.4644, 75.9218); // supplier (demo)
+          // 3 legs: confirmed → go to shop; on_the_way → go to customer;
+          // arrived → at the customer's door.
+          final toShop = o.status == OrderStatus.confirmed;
+          final target = toShop
+              ? LatLng(_supLat ?? 14.4644, _supLng ?? 75.9218) // real shop location
+              : LatLng(o.deliveryLat ?? 14.47, o.deliveryLng ?? 75.92);
           return Column(
             children: [
               SizedBox(
@@ -100,7 +127,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                     ),
                     MarkerLayer(markers: [
                       Marker(point: target, child: Icon(
-                          toCustomer ? Icons.home : Icons.store,
+                          toShop ? Icons.store : Icons.home,
                           color: AppColors.primary, size: 36)),
                     ]),
                   ],
@@ -111,51 +138,63 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                   padding: const EdgeInsets.all(16),
                   children: [
                     Card(child: ListTile(
-                      leading: Icon(toCustomer ? Icons.home : Icons.store, color: AppColors.primary),
-                      title: Text(toCustomer ? 'Deliver to customer' : 'Pick up from supplier'),
-                      subtitle: Text(toCustomer ? (o.deliveryAddress ?? '') : 'Supplier location'),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.call, color: AppColors.secondary),
-                        onPressed: () => _call(null),
-                      ),
+                      leading: Icon(toShop ? Icons.store : Icons.home, color: AppColors.primary),
+                      title: Text(toShop ? 'Pick up from shop' : 'Deliver to customer'),
+                      subtitle: Text(toShop
+                          ? [_supName, _supAddress].where((e) => e != null && e.isNotEmpty).join(' · ')
+                          : (o.deliveryAddress ?? '')),
                     )),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.navigation),
-                      label: Text(toCustomer ? 'Navigate to customer' : 'Navigate to supplier'),
+                      label: Text(toShop ? 'Navigate to shop' : 'Navigate to customer'),
                       onPressed: () => _navigate(target),
                     ),
-                    const SizedBox(height: 8),
-                    if (!toCustomer)
+                    const SizedBox(height: 12),
+                    // Leg 1: at the shop → picked up.
+                    if (o.status == OrderStatus.confirmed)
                       ElevatedButton.icon(
                         icon: const Icon(Icons.check),
                         label: const Text('Picked Up'),
                         onPressed: _markPickedUp,
                       ),
-                    if (toCustomer) ...[
+                    // Leg 2: on the way → reached the customer.
+                    if (o.status == OrderStatus.on_the_way)
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.location_on),
+                        label: const Text('Reached Customer Location'),
+                        onPressed: _markArrived,
+                      ),
+                    // Leg 3: at the door → collect COD, then accept or reject.
+                    if (o.status == OrderStatus.arrived) ...[
                       Card(
                         color: AppColors.warning.withOpacity(0.1),
-                        child: const ListTile(
-                          leading: Icon(Icons.payments, color: AppColors.warning),
-                          title: Text('Collect Cash (COD)'),
-                          subtitle: Text('Collect order total from customer'),
+                        child: ListTile(
+                          leading: const Icon(Icons.payments, color: AppColors.warning),
+                          title: const Text('Collect Cash (COD)'),
+                          subtitle: Text('Collect ${formatRupees(o.total)} from the customer'),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: _otpCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Enter 4-digit OTP from customer',
-                          errorText: _error,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
+                      ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary),
-                        onPressed: _markDelivered,
-                        child: const Text('Mark Delivered'),
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Delivered — customer accepted'),
+                        onPressed: _markAccepted,
                       ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
+                        icon: const Icon(Icons.cancel),
+                        label: const Text('Rejected by customer'),
+                        onPressed: _markRejected,
+                      ),
+                      if (_error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(_error!,
+                              style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+                        ),
                     ],
                   ],
                 ),

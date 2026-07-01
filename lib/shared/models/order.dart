@@ -2,7 +2,7 @@ import 'order_item.dart';
 
 /// Order status lifecycle.
 enum OrderStatus {
-  placed, confirmed, preparing, picked_up, on_the_way, delivered, cancelled;
+  placed, confirmed, preparing, picked_up, on_the_way, arrived, delivered, returned, cancelled;
 
   static OrderStatus from(String s) =>
       OrderStatus.values.firstWhere((e) => e.name == s, orElse: () => OrderStatus.placed);
@@ -14,7 +14,9 @@ enum OrderStatus {
       case OrderStatus.preparing: return 'Preparing';
       case OrderStatus.picked_up: return 'Picked Up';
       case OrderStatus.on_the_way: return 'On The Way';
+      case OrderStatus.arrived: return 'Reached You';
       case OrderStatus.delivered: return 'Delivered';
+      case OrderStatus.returned: return 'Returned';
       case OrderStatus.cancelled: return 'Cancelled';
     }
   }

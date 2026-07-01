@@ -73,8 +73,7 @@ class _State extends ConsumerState<OrdersScreen> {
             final isToday = (Order o) => o.placedAt.day == DateTime.now().day;
             final newOrders = orders.where((o) => o.status == OrderStatus.placed).toList();
             final active = orders.where((o) => [
-                  OrderStatus.confirmed, OrderStatus.preparing,
-                  OrderStatus.picked_up, OrderStatus.on_the_way
+                  OrderStatus.confirmed, OrderStatus.on_the_way
                 ].contains(o.status)).toList();
             final done = orders.where((o) => o.status == OrderStatus.delivered && isToday(o)).toList();
             return TabBarView(children: [
@@ -140,24 +139,24 @@ class _State extends ConsumerState<OrdersScreen> {
         ),
       ]);
 
+  // After accepting, the supplier just hands the order to the delivery partner.
   Widget _activeActions(Order o) {
-    if (o.status == OrderStatus.confirmed) {
-      return ElevatedButton(
-        onPressed: () => ref.read(orderServiceProvider)
-            .updateOrderStatus(o.id, OrderStatus.preparing),
-        child: const Text('Start Preparing'),
-      );
-    }
-    if (o.status == OrderStatus.preparing) {
-      return ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary),
-        onPressed: () => ref.read(orderServiceProvider)
-            .updateOrderStatus(o.id, OrderStatus.picked_up),
-        child: const Text('Mark Ready for Pickup'),
-      );
-    }
-    return Text('Status: ${o.status.label}',
-        style: const TextStyle(color: AppColors.textMuted));
+    final (icon, text, color) = switch (o.status) {
+      OrderStatus.confirmed => (
+          Icons.delivery_dining,
+          o.deliveryId == null
+              ? 'Finding a delivery partner…'
+              : 'Delivery partner assigned — hand over when they arrive',
+          AppColors.warning),
+      OrderStatus.on_the_way => (
+          Icons.local_shipping, 'Picked up · on the way to customer', AppColors.primary),
+      _ => (Icons.info_outline, o.status.label, AppColors.textMuted),
+    };
+    return Row(children: [
+      Icon(icon, size: 18, color: color),
+      const SizedBox(width: 8),
+      Expanded(child: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w500))),
+    ]);
   }
 }
 

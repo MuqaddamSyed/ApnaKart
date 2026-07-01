@@ -52,10 +52,11 @@ class _State extends ConsumerState<StatusScreen> {
   }
 
   /// Unassigned, ready-for-pickup orders that need an agent.
+  /// Orders a supplier has accepted (confirmed) that no agent has claimed yet.
   Stream<List<Order>> _pending() {
     return supabase.from('orders')
         .stream(primaryKey: ['id'])
-        .eq('status', 'picked_up')
+        .eq('status', 'confirmed')
         .map((rows) => rows
             .map((e) => Order.fromMap(e))
             .where((o) => o.deliveryId == null)

@@ -37,11 +37,17 @@ class _State extends ConsumerState<IncomingOrderSheet> {
   Future<void> _accept() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
-    await ref.read(orderServiceProvider).assignAgent(widget.order.id, uid);
-    await ref.read(orderServiceProvider).updateOrderStatus(widget.order.id, OrderStatus.on_the_way);
-    if (mounted) {
-      Navigator.pop(context);
+    // Atomically claim it — the order stays "confirmed" (assigned) until the
+    // agent actually picks it up. First agent to accept wins.
+    final claimed = await ref.read(orderServiceProvider).claimOrder(widget.order.id, uid);
+    if (!mounted) return;
+    Navigator.pop(context);
+    if (claimed) {
       context.push('${Routes.active}/${widget.order.id}');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Another partner already took this order')),
+      );
     }
   }
 

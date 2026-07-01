@@ -56,6 +56,7 @@ class _State extends ConsumerState<DeliveryOnboardingScreen> {
       // while is_verified=false; admin flips it later.
       await supabase.from('delivery_agents').upsert({
         'id': uid,
+        'name': _name.text.trim(),
         'vehicle_type': _vehicle,
         'address': _address.text.trim(),
         'is_available': false,

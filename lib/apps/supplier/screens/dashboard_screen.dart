@@ -48,10 +48,18 @@ class _State extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final today = _orders.where((o) =>
-        o.placedAt.day == DateTime.now().day &&
-        o.status != OrderStatus.cancelled).toList();
-    final revenue = today.fold<double>(0, (s, o) => s + o.total);
+    final now = DateTime.now();
+    bool sameDay(DateTime d) =>
+        d.year == now.year && d.month == now.month && d.day == now.day;
+    final todaysOrders = _orders.where((o) =>
+        sameDay(o.placedAt) &&
+        o.status != OrderStatus.cancelled &&
+        o.status != OrderStatus.returned).toList();
+    // Today's amount = product earnings (subtotal) of DELIVERED orders only —
+    // the delivery charge belongs to the agent, not the shop.
+    final amount = todaysOrders
+        .where((o) => o.status == OrderStatus.delivered)
+        .fold<double>(0, (s, o) => s + o.subtotal);
     final pending = _orders.where((o) => o.status == OrderStatus.placed).length;
 
     return Scaffold(
@@ -94,9 +102,9 @@ class _State extends ConsumerState<DashboardScreen> {
                   ),
                   const SizedBox(height: 12),
                   Row(children: [
-                    _stat("Today's Orders", '${today.length}', Icons.shopping_bag),
+                    _stat("Today's Orders", '${todaysOrders.length}', Icons.shopping_bag),
                     const SizedBox(width: 12),
-                    _stat("Today's Revenue", formatRupees(revenue), Icons.payments),
+                    _stat("Today's Amount", formatRupees(amount), Icons.payments),
                   ]),
                   const SizedBox(height: 12),
                   _stat('Pending Orders', '$pending', Icons.pending_actions, full: true,

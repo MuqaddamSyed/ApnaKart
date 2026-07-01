@@ -77,7 +77,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         lat = loc.latitude;
         lng = loc.longitude;
       } catch (_) {/* keep saved location if GPS unavailable/denied */}
-      final res = await ref.read(orderServiceProvider).placeOrder(
+      final orderId = await ref.read(orderServiceProvider).placeOrder(
             customerId: uid,
             supplierId: cart.supplierId!,
             items: cart.items.values.toList(),
@@ -87,7 +87,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           );
       ref.read(cartProvider.notifier).clear();
       if (!mounted) return;
-      context.go('${Routes.tracking}/${res.orderId}');
+      context.go('${Routes.tracking}/$orderId');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
     } finally {

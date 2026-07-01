@@ -1,22 +1,14 @@
-import 'dart:math';
 import '../models/order.dart';
 import '../models/order_item.dart';
 import '../../core/constants/app_constants.dart';
 import 'supabase_client.dart';
-import 'otp_store.dart';
 import 'notification_service.dart';
 
 /// Order placement, status updates, realtime streams, queries.
 class OrderService {
-  /// Generates a 4-digit delivery OTP (string, zero-padded).
-  static String generateOtp() =>
-      (Random().nextInt(9000) + 1000).toString();
-
-  /// Places an order with COD. Returns the created order id + plaintext OTP.
-  /// The OTP is stored ONLY as a bcrypt hash server-side (via the
-  /// `set_order_otp` RPC); the plaintext is kept locally on the customer's
-  /// device (Hive/OtpStore) so the tracking screen can display it.
-  Future<({String orderId, String otp})> placeOrder({
+  /// Places a COD order and returns its id. Delivery is confirmed by the agent
+  /// in-app (no OTP). The supplier is notified of the new order.
+  Future<String> placeOrder({
     required String customerId,
     required String supplierId,
     required List<OrderItem> items,
@@ -28,7 +20,6 @@ class OrderService {
     final subtotal = items.fold<double>(0, (s, i) => s + i.totalPrice);
     const deliveryFee = AppConstants.flatDeliveryFee;
     final total = subtotal + deliveryFee;
-    final otp = generateOtp();
 
     final order = await supabase.from('orders').insert({
       'customer_id': customerId,
@@ -49,20 +40,15 @@ class OrderService {
       items.map((i) => i.toInsert(orderId)).toList(),
     );
 
-    // Hash + store the OTP server-side; keep plaintext only on this device.
-    await supabase.rpc('set_order_otp', params: {
-      'p_order_id': orderId,
-      'p_otp': otp,
-    });
-    await OtpStore.save(orderId, otp);
+    // Notify the supplier of the new order (best-effort push).
     await NotificationService().sendPushToUser(
       supplierId,
       'New order received',
-      'A customer placed a new order.',
+      'A customer placed a new order for your shop.',
       type: 'new_order',
     );
 
-    return (orderId: orderId, otp: otp);
+    return orderId;
   }
 
   Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
@@ -75,60 +61,74 @@ class OrderService {
     if (row == null) return;
 
     final customerId = row['customer_id'] as String?;
-    final supplierId = row['supplier_id'] as String?;
-    final deliveryId = row['delivery_id'] as String?;
     final notifications = NotificationService();
 
-    if (status == OrderStatus.picked_up) {
+    // Supplier accepted → release to the delivery pool + tell online agents.
+    if (status == OrderStatus.confirmed) {
       await notifications.sendPushToRole(
         'delivery',
-        'Order ready for pickup',
-        'A supplier marked an order ready for delivery.',
+        'New delivery available',
+        'A shop accepted an order — accept it to deliver.',
         type: 'delivery_request',
       );
     }
+    // Customer is notified ONLY for: rejected, on-the-way, and arrived.
     if (customerId != null) {
-      await notifications.sendPushToUser(
-        customerId,
-        'Order update',
-        'Your order is now ${status.label}.',
-        type: 'order_update',
-      );
-    }
-    if (status == OrderStatus.cancelled && supplierId != null) {
-      await notifications.sendPushToUser(
-        supplierId,
-        'Order cancelled',
-        'A customer cancelled an order.',
-        type: 'order_cancelled',
-      );
-    }
-    if (status == OrderStatus.on_the_way && deliveryId != null && customerId != null) {
-      await notifications.sendPushToUser(
-        customerId,
-        'Delivery on the way',
-        'Your delivery partner is heading to you.',
-        type: 'delivery_assigned',
-      );
+      final (title, body) = switch (status) {
+        OrderStatus.cancelled => ('Order rejected', 'Sorry, your order could not be accepted.'),
+        OrderStatus.on_the_way => ('On the way', 'Picked up! Your order is on the way.'),
+        OrderStatus.arrived => ('Delivery partner arrived', 'Your delivery partner has reached your location.'),
+        _ => (null, null),
+      };
+      if (title != null) {
+        await notifications.sendPushToUser(customerId, title, body!, type: 'order_update');
+      }
     }
   }
 
-  Future<void> assignAgent(String orderId, String agentId) async {
-    await supabase.from('orders').update({'delivery_id': agentId}).eq('id', orderId);
+  /// Atomically claim an unassigned order for [agentId]. Returns false if
+  /// another agent already took it (delivery_id was not null).
+  Future<bool> claimOrder(String orderId, String agentId) async {
+    final updated = await supabase
+        .from('orders')
+        .update({'delivery_id': agentId})
+        .eq('id', orderId)
+        .isFilter('delivery_id', null)
+        .select('id');
+    final ok = (updated as List).isNotEmpty;
+    if (ok) {
+      final row = await supabase
+          .from('orders')
+          .select('customer_id')
+          .eq('id', orderId)
+          .maybeSingle();
+      final customerId = row?['customer_id'] as String?;
+      if (customerId != null) {
+        await NotificationService().sendPushToUser(
+          customerId,
+          'Delivery partner assigned',
+          'A delivery partner is picking up your order.',
+          type: 'delivery_assigned',
+        );
+      }
+    }
+    return ok;
   }
 
-  /// Verifies the OTP via the `verify-delivery-otp` Edge Function, which
-  /// compares against the stored bcrypt hash and, on match, atomically marks
-  /// the order delivered and bumps the agent's earnings. Returns true on match.
-  Future<bool> confirmDelivery(String orderId, String enteredOtp) async {
-    final res = await supabase.functions.invoke(
-      'verify-delivery-otp',
-      body: {'orderId': orderId, 'otp': enteredOtp},
-    );
-    final data = res.data;
-    if (data is Map && data['success'] == true) return true;
-    return false;
+  /// Agent reached the customer's location.
+  Future<void> markArrived(String orderId) =>
+      updateOrderStatus(orderId, OrderStatus.arrived);
+
+  /// Customer accepted the order → mark delivered + credit the agent
+  /// (server-side, atomic, no OTP). Supplier's earnings reflect it via the
+  /// delivered status. Throws on failure.
+  Future<void> completeDelivery(String orderId) async {
+    await supabase.rpc('complete_delivery', params: {'p_order_id': orderId});
   }
+
+  /// Customer refused the order at the door.
+  Future<void> rejectByCustomer(String orderId) =>
+      updateOrderStatus(orderId, OrderStatus.returned);
 
   /// Realtime stream for a single order (status + agent changes).
   Stream<Order> listenToOrder(String orderId) {

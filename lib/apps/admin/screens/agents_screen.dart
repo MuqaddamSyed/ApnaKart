@@ -55,7 +55,9 @@ class _State extends State<AdminAgentsScreen> {
                             color: a.isVerified
                                 ? (a.isAvailable ? AppColors.secondary : AppColors.textMuted)
                                 : AppColors.warning),
-                        title: Text('Agent ${a.id.substring(0, 8)}'),
+                        title: Text(a.name?.isNotEmpty == true
+                            ? a.name!
+                            : 'Agent ${a.id.substring(0, 8)}'),
                         subtitle: Text('${a.vehicleType ?? '-'}  •  ${a.totalDeliveries} deliveries'),
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                           Text(

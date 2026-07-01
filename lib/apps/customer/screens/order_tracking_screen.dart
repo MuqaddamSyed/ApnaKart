@@ -7,10 +7,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/services/supabase_client.dart';
-import '../../../shared/services/otp_store.dart';
 import '../../../shared/widgets/status_stepper.dart';
 
-/// Live tracking: status stepper, OSM map with agent location, OTP, cancel.
+/// Live tracking: status stepper, OSM map with agent location, cancel.
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
   const OrderTrackingScreen({super.key, required this.orderId});
@@ -19,26 +18,22 @@ class OrderTrackingScreen extends ConsumerStatefulWidget {
 }
 
 class _State extends ConsumerState<OrderTrackingScreen> {
-  String? _otp;
   Map<String, dynamic>? _agent;
 
   @override
   void initState() {
     super.initState();
-    _loadOtpAndAgent();
+    _loadAgent();
   }
 
-  Future<void> _loadOtpAndAgent() async {
-    // OTP is read from local storage — the server only keeps a hash.
-    final localOtp = await OtpStore.get(widget.orderId);
-    setState(() => _otp = localOtp);
+  Future<void> _loadAgent() async {
     final row = await supabase.from('orders')
         .select('delivery_id').eq('id', widget.orderId).maybeSingle();
     if (row?['delivery_id'] != null) {
       final a = await supabase.from('delivery_agents')
-          .select('current_lat,current_lng, users(name, phone)')
+          .select('current_lat,current_lng,name, users(name, phone)')
           .eq('id', row!['delivery_id']).maybeSingle();
-      setState(() => _agent = a);
+      if (mounted) setState(() => _agent = a);
     }
   }
 
@@ -127,24 +122,27 @@ class _State extends ConsumerState<OrderTrackingScreen> {
               if (_agent != null)
                 Card(child: ListTile(
                   leading: const Icon(Icons.person, color: AppColors.primary),
-                  title: Text(_agent?['users']?['name'] ?? 'Delivery agent'),
+                  title: Text(_agent?['name'] ?? _agent?['users']?['name'] ?? 'Delivery partner'),
                   subtitle: const Text('Tap to call'),
                   trailing: IconButton(
                     icon: const Icon(Icons.call, color: AppColors.secondary),
                     onPressed: () => _call(_agent?['users']?['phone'] ?? ''),
                   ),
                 )),
-              if (atDoor && _otp != null)
+              if (order.status == OrderStatus.arrived)
                 Card(
                   color: AppColors.secondary.withOpacity(0.1),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(children: [
-                      const Text('Show this OTP to the delivery agent'),
-                      const SizedBox(height: 8),
-                      Text(_otp!,
-                          style: const TextStyle(
-                              fontSize: 32, fontWeight: FontWeight.w700, letterSpacing: 8)),
+                  child: const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Row(children: [
+                      Icon(Icons.emoji_people, color: AppColors.secondary),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Your delivery partner has reached you. Please collect your order and pay by cash.',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
                     ]),
                   ),
                 ),
