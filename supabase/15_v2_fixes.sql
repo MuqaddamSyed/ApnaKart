@@ -313,3 +313,38 @@ create policy "session_update_agent" on order_sessions for update
       and status in ('out_for_delivery')
     )
   );
+
+-- -------------------------------------------------------
+-- 7. REALTIME PUBLICATION
+--    The customer tracking screen (listenToSession) and the
+--    delivery pool (listenToAvailableSessions) stream from
+--    order_sessions, which is a NEW table from migration 13
+--    and is not in the realtime publication by default.
+--    Without this, those streams silently never emit → blank
+--    tracking screen + empty delivery pool.
+--    orders is added too (defensive; usually already present).
+--    Idempotent + safe on self-hosted where the publication
+--    may not exist.
+-- -------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'order_sessions'
+    ) then
+      alter publication supabase_realtime add table order_sessions;
+    end if;
+
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'orders'
+    ) then
+      alter publication supabase_realtime add table orders;
+    end if;
+  end if;
+end $$;

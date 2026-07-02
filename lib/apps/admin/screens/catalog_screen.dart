@@ -152,89 +152,90 @@ class _State extends State<AdminCatalogScreen> {
                           scrollDirection: Axis.horizontal,
                           child: SingleChildScrollView(
                             child: DataTable(
-                            columnSpacing: 20,
-                            columns: const [
-                              DataColumn(label: Text('Image')),
-                              DataColumn(label: Text('Name')),
-                              DataColumn(label: Text('Category')),
-                              DataColumn(label: Text('MRP')),
-                              DataColumn(label: Text('Supplier')),
-                              DataColumn(label: Text('Admin Lock')),
-                              DataColumn(label: Text('Available')),
-                              DataColumn(label: Text('Actions')),
-                            ],
+                              columnSpacing: 20,
+                              columns: const [
+                                DataColumn(label: Text('Image')),
+                                DataColumn(label: Text('Name')),
+                                DataColumn(label: Text('Category')),
+                                DataColumn(label: Text('MRP')),
+                                DataColumn(label: Text('Supplier')),
+                                DataColumn(label: Text('Admin Lock')),
+                                DataColumn(label: Text('Available')),
+                                DataColumn(label: Text('Actions')),
+                              ],
                               rows: _filtered.map((p) {
                                 final supplier = _suppliers
                                     .where((s) => s.id == p.supplierId)
                                     .firstOrNull;
                                 return DataRow(cells: [
-                                DataCell(p.imageUrl != null
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(6),
-                                        child: Image.network(p.imageUrl!,
-                                            width: 40,
-                                            height: 40,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                const Icon(Icons.image_not_supported,
-                                                    size: 32, color: AppColors.textMuted)),
-                                      )
-                                    : const Icon(Icons.inventory_2,
-                                        color: AppColors.textMuted, size: 32)),
-                                DataCell(Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(p.name,
-                                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                                    Text(p.unit ?? '',
-                                        style: const TextStyle(
-                                            fontSize: 11, color: AppColors.textMuted)),
-                                  ],
-                                )),
-                                DataCell(Text(p.category ?? '-')),
-                                DataCell(Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(formatRupees(p.mrp)),
-                                    if (p.salePrice < p.mrp)
-                                      Text(
-                                        '${p.discountPercent}% off',
-                                        style: const TextStyle(
-                                            fontSize: 11, color: AppColors.secondary),
-                                      ),
-                                  ],
-                                )),
-                                DataCell(Text(
-                                    supplier?.shopName ?? p.supplierId.substring(0, 8),
-                                    style: const TextStyle(fontSize: 13))),
-                                DataCell(Switch(
-                                  value: p.adminManaged,
-                                  activeColor: AppColors.primary,
-                                  onChanged: (v) => _toggleAdminManaged(p, v),
-                                )),
-                                DataCell(Switch(
-                                  value: p.isAvailable,
-                                  activeColor: AppColors.secondary,
-                                  onChanged: (v) => _toggleAvailable(p, v),
-                                )),
-                                DataCell(Row(children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined,
-                                        size: 18, color: AppColors.primary),
-                                    tooltip: 'Edit',
-                                    onPressed: () => _openEditor(product: p),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline,
-                                        size: 18, color: AppColors.danger),
-                                    tooltip: 'Delete',
-                                    onPressed: () => _delete(p),
-                                  ),
-                                ])),
-                              ]);
-                            }).toList(),
+                                  DataCell(p.imageUrl != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(6),
+                                          child: Image.network(p.imageUrl!,
+                                              width: 40,
+                                              height: 40,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  const Icon(Icons.image_not_supported,
+                                                      size: 32, color: AppColors.textMuted)),
+                                        )
+                                      : const Icon(Icons.inventory_2,
+                                          color: AppColors.textMuted, size: 32)),
+                                  DataCell(Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(p.name,
+                                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                                      Text(p.unit ?? '',
+                                          style: const TextStyle(
+                                              fontSize: 11, color: AppColors.textMuted)),
+                                    ],
+                                  )),
+                                  DataCell(Text(p.category ?? '-')),
+                                  DataCell(Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(formatRupees(p.mrp)),
+                                      if (p.salePrice < p.mrp)
+                                        Text(
+                                          '${p.discountPercent}% off',
+                                          style: const TextStyle(
+                                              fontSize: 11, color: AppColors.secondary),
+                                        ),
+                                    ],
+                                  )),
+                                  DataCell(Text(
+                                      supplier?.shopName ?? p.supplierId.substring(0, 8),
+                                      style: const TextStyle(fontSize: 13))),
+                                  DataCell(Switch(
+                                    value: p.adminManaged,
+                                    activeColor: AppColors.primary,
+                                    onChanged: (v) => _toggleAdminManaged(p, v),
+                                  )),
+                                  DataCell(Switch(
+                                    value: p.isAvailable,
+                                    activeColor: AppColors.secondary,
+                                    onChanged: (v) => _toggleAvailable(p, v),
+                                  )),
+                                  DataCell(Row(children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined,
+                                          size: 18, color: AppColors.primary),
+                                      tooltip: 'Edit',
+                                      onPressed: () => _openEditor(product: p),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline,
+                                          size: 18, color: AppColors.danger),
+                                      tooltip: 'Delete',
+                                      onPressed: () => _delete(p),
+                                    ),
+                                  ])),
+                                ]);
+                              }).toList(),
+                            ),
                           ),
                         ),
                       ),
