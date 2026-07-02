@@ -16,6 +16,15 @@ if (localPropertiesFile.exists()) {
 def flutterVersionCode = localProperties.getProperty("flutter.versionCode") ?: "1"
 def flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "1.0"
 
+// Optional release signing. If android/key.properties exists (kept out of
+// git), release builds are signed with that keystore; otherwise they fall
+// back to the debug key so builds always work out of the box.
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withReader("UTF-8") { reader -> keystoreProperties.load(reader) }
+}
+
 android {
     namespace = "com.quickkart.app"
     compileSdk = flutter.compileSdkVersion
@@ -63,11 +72,23 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+                storeFile = keystoreProperties["storeFile"] ? file(keystoreProperties["storeFile"]) : null
+                storePassword = keystoreProperties["storePassword"]
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Debug signing so `flutter build apk --debug/--release` runs out of the box.
-            // Replace with a real keystore before publishing to Play.
-            signingConfig = signingConfigs.debug
+            // Use the release keystore when android/key.properties is present;
+            // otherwise fall back to debug signing so builds run out of the box.
+            // (Consistent debug key on this machine still updates in place.)
+            signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
         }
     }
 }

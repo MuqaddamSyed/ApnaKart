@@ -29,6 +29,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
   List<Order> _subOrders = [];
   String? _customerPhone;
   StreamSubscription<List<Order>>? _subOrdersSub;
+  final _otpCtrl = TextEditingController();
   // supplierId -> picked up
   final Map<String, bool> _pickedUp = {};
 
@@ -97,6 +98,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
   void dispose() {
     _ping?.cancel();
     _subOrdersSub?.cancel();
+    _otpCtrl.dispose();
     super.dispose();
   }
 
@@ -150,11 +152,16 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
 
   Future<void> _markAccepted() async {
     if (_busy) return;
-    setState(() => _busy = true);
+    final otp = _otpCtrl.text.trim();
+    if (otp.length != 4) {
+      setState(() => _error = 'Enter the 4-digit code the customer shows you.');
+      return;
+    }
+    setState(() { _busy = true; _error = null; });
     try {
       await ref
           .read(orderServiceProvider)
-          .completeSessionDelivery(widget.sessionId);
+          .completeSessionDeliveryWithOtp(widget.sessionId, otp);
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) setState(() => _error = 'Could not complete: $e');
@@ -386,11 +393,22 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
+                      TextField(
+                        controller: _otpCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        decoration: const InputDecoration(
+                          labelText: 'Delivery code from customer',
+                          counterText: '',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.secondary),
                         icon: const Icon(Icons.check_circle),
-                        label: const Text('Delivered — customer accepted'),
+                        label: const Text('Confirm Delivery'),
                         onPressed: _busy ? null : _markAccepted,
                       ),
                       const SizedBox(height: 8),

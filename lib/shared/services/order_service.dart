@@ -160,17 +160,31 @@ class OrderService {
     await supabase.rpc('complete_session_delivery', params: {'p_session_id': sessionId});
   }
 
+  /// Agent completes delivery by entering the handoff code the customer shows.
+  Future<void> completeSessionDeliveryWithOtp(String sessionId, String otp) async {
+    await supabase.rpc('complete_session_delivery',
+        params: {'p_session_id': sessionId, 'p_otp': otp});
+  }
+
   Future<void> rejectSessionByCustomer(String sessionId) async {
     await supabase.rpc('reject_session_by_customer', params: {'p_session_id': sessionId});
   }
 
-  /// Mark agent arrived at customer location (updates session sub-orders).
+  /// Mark agent arrived: flips sub-orders to 'arrived' and generates the
+  /// handoff code (server-side, agent-only).
   Future<void> markSessionArrived(String sessionId) async {
-    await supabase
-        .from('orders')
-        .update({'status': OrderStatus.arrived.name})
+    await supabase.rpc('mark_session_arrived', params: {'p_session_id': sessionId});
+  }
+
+  /// The 4-digit handoff code for a session — readable only by the owning
+  /// customer (RLS). Returns null until the agent has marked arrival.
+  Future<String?> getSessionOtp(String sessionId) async {
+    final row = await supabase
+        .from('session_handoff')
+        .select('otp')
         .eq('session_id', sessionId)
-        .not('status', 'in', '("cancelled","delivered","returned")');
+        .maybeSingle();
+    return row?['otp'] as String?;
   }
 
   // ---------------------------------------------------------------

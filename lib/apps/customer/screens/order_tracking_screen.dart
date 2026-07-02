@@ -99,24 +99,6 @@ class _State extends ConsumerState<OrderTrackingScreen> {
     }
   }
 
-  Future<void> _accept() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    try {
-      await ref
-          .read(orderServiceProvider)
-          .completeSessionDelivery(widget.sessionId);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
   Future<void> _reject() async {
     if (_loading) return;
     setState(() => _loading = true);
@@ -310,32 +292,45 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                     ),
                   ),
                 ),
-              // Accept / Reject when agent has arrived.
+              // At the door: show the handoff code + reject option.
+              // The agent enters this code to confirm delivery (works even
+              // if you background the app — just read it out).
               if (isArrived && !isDelivered && !isCancelled) ...[
                 const SizedBox(height: 12),
                 Card(
-                  color: AppColors.warning.withOpacity(0.1),
-                  child: const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Row(children: [
-                      Icon(Icons.emoji_people, color: AppColors.warning),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Your delivery partner has arrived. Please collect your order and pay by cash.',
-                          style: TextStyle(fontWeight: FontWeight.w500),
+                  color: AppColors.secondary.withOpacity(0.1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text('Your delivery partner has arrived',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Collect your order, pay by cash, and share this code with the partner to confirm delivery:',
+                          style: TextStyle(
+                              fontSize: 13, color: AppColors.textMuted),
                         ),
-                      ),
-                    ]),
+                        const SizedBox(height: 12),
+                        FutureBuilder<String?>(
+                          future: ref
+                              .read(orderServiceProvider)
+                              .getSessionOtp(widget.sessionId),
+                          builder: (context, s) => Center(
+                            child: Text(
+                              s.data ?? '– – – –',
+                              style: const TextStyle(
+                                  fontSize: 40,
+                                  letterSpacing: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.secondary),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary),
-                  icon: const Icon(Icons.check_circle),
-                  label: const Text('I received my order'),
-                  onPressed: _loading ? null : _accept,
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(

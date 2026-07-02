@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../shared/models/order.dart';
+import '../../../shared/models/order_item.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/services/supabase_client.dart';
 import '../../../shared/utils/formatters.dart';
@@ -159,10 +160,72 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
                 style:
                     const TextStyle(fontSize: 12, color: AppColors.textMuted)),
             const SizedBox(height: 8),
+            // Ordered products so the supplier knows what to pack/confirm.
+            _itemsList(o.id),
+            const SizedBox(height: 8),
             actions,
           ],
         ),
       ),
+    );
+  }
+
+  /// Fetches and lists the products in an order (name × qty · line total),
+  /// so the supplier can see exactly what was ordered before accepting.
+  Widget _itemsList(String orderId) {
+    return FutureBuilder<List<OrderItem>>(
+      future: ref.read(orderServiceProvider).getOrderItems(orderId),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Text('Loading items…',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          );
+        }
+        final items = snap.data!;
+        if (items.isEmpty) {
+          return const Text('No item details',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted));
+        }
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Items',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textMuted)),
+              const SizedBox(height: 4),
+              ...items.map((it) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(children: [
+                      Expanded(
+                        child: Text(
+                          '${it.productName}'
+                          '${it.unit != null && it.unit!.isNotEmpty ? ' (${it.unit})' : ''}',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      Text('× ${it.quantity}',
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 10),
+                      Text(formatRupees(it.unitPrice * it.quantity),
+                          style: const TextStyle(fontSize: 13)),
+                    ]),
+                  )),
+            ],
+          ),
+        );
+      },
     );
   }
 

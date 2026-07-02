@@ -35,8 +35,12 @@ class _State extends ConsumerState<DashboardScreen> {
       _open = shop?['is_open'] as bool? ?? true;
       if (_approved) {
         _orders = await ref.read(orderServiceProvider).getOrdersBySupplier(uid);
-        _todayEarnings = await ref.read(orderServiceProvider).getTodaySupplierEarnings(uid);
-        _totalEarnings = await ref.read(orderServiceProvider).getTotalSupplierEarnings(uid);
+        // Earnings use RPCs from migrations 15/16. Guard them so a missing
+        // RPC (migration not yet applied) can't break the whole dashboard.
+        try {
+          _todayEarnings = await ref.read(orderServiceProvider).getTodaySupplierEarnings(uid);
+          _totalEarnings = await ref.read(orderServiceProvider).getTotalSupplierEarnings(uid);
+        } catch (_) {/* earnings stay 0 until migrations are applied */}
       }
     }
     if (mounted) setState(() => _loading = false);
