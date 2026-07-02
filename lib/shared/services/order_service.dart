@@ -187,6 +187,19 @@ class OrderService {
     }, onConflict: 'order_item_id');
   }
 
+  /// Recomputes an order's subtotal from packed (effective) item quantities and
+  /// propagates the delta to the parent session total, so the customer is billed
+  /// for what was actually available. Runs server-side (SECURITY DEFINER) since
+  /// the supplier cannot read sibling sub-orders or the session row under RLS.
+  Future<void> recomputeOrderAndSessionTotals(String orderId) async {
+    await supabase
+        .rpc('recompute_session_total', params: {'p_order_id': orderId});
+  }
+
+  /// Customer cancels a whole session before it is picked up.
+  Future<void> cancelSessionByCustomer(String sessionId) =>
+      rejectSessionByCustomer(sessionId);
+
   // ---------------------------------------------------------------
   // LEGACY: single-order claim (kept for backward compat)
   // ---------------------------------------------------------------
@@ -231,6 +244,16 @@ class OrderService {
         .eq('id', sessionId)
         .where((rows) => rows.isNotEmpty)
         .map((rows) => OrderSession.fromMap(rows.first));
+  }
+
+  /// Live sub-orders (one row per supplier) for a session. Used to derive
+  /// arrival/status on the customer and delivery screens in realtime.
+  Stream<List<Order>> listenToSessionOrders(String sessionId) {
+    return supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('session_id', sessionId)
+        .map((rows) => rows.map((e) => Order.fromMap(e)).toList());
   }
 
   /// Active and new orders for a supplier (all non-terminal statuses).
@@ -308,6 +331,16 @@ class OrderService {
     return (rows as List).map((e) => Order.fromMap(e)).toList();
   }
 
+  /// Number of supplier sub-orders (shops) in a session. Used by the delivery
+  /// list/sheet where the session stream itself doesn't carry sub-orders.
+  Future<int> getSessionShopCount(String sessionId) async {
+    final rows = await supabase
+        .from('orders')
+        .select('id')
+        .eq('session_id', sessionId);
+    return (rows as List).length;
+  }
+
   Future<List<OrderItem>> getOrderItems(String orderId) async {
     final rows = await supabase
         .from('order_items')
@@ -324,8 +357,8 @@ class OrderService {
         id: m['id'] as String?,
         productId: m['product_id'] as String,
         productName: prod?['name']?.toString() ?? '',
-        quantity: m['quantity'] as int,
-        unitPrice: (m['unit_price'] as num).toDouble(),
+        quantity: (m['quantity'] as num?)?.toInt() ?? 0,
+        unitPrice: (m['unit_price'] as num?)?.toDouble() ?? 0,
         imageUrl: prod?['image_url'] as String?,
         unit: prod?['unit'] as String?,
         isAvailable: status?['is_available'] as bool?,

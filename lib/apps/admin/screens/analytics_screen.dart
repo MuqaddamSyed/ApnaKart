@@ -41,7 +41,7 @@ class _State extends State<AnalyticsScreen> {
     final orderRows = await supabase
         .from('orders')
         .select('supplier_id, subtotal, suppliers(shop_name)')
-        .inFilter('status', ['delivered', 'completed']);
+        .eq('status', 'delivered');
     final map = <String, _SupplierRevenue>{};
     for (final row in (orderRows as List)) {
       final sid = row['supplier_id'] as String;

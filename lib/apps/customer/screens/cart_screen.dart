@@ -67,11 +67,16 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     try {
       var lat = _lat;
       var lng = _lng;
-      try {
-        final loc = await ref.read(locationServiceProvider).getCurrentLocation();
-        lat = loc.latitude;
-        lng = loc.longitude;
-      } catch (_) {}
+      // Only fall back to device GPS when no address coordinates were selected.
+      // Otherwise the order could be delivered to the wrong (device) location
+      // instead of the address the customer picked.
+      if (lat == null || lng == null) {
+        try {
+          final loc = await ref.read(locationServiceProvider).getCurrentLocation();
+          lat = loc.latitude;
+          lng = loc.longitude;
+        } catch (_) {}
+      }
 
       final sessionId = await ref.read(orderServiceProvider).placeMultiSupplierOrder(
             customerId: uid,
@@ -117,7 +122,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 8, bottom: 4),
                 child: Text(
-                  'Shop · ${supplierId.substring(0, 8)}',
+                  'Shop · ${supplierId.length >= 8 ? supplierId.substring(0, 8) : supplierId}',
                   style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textMuted,

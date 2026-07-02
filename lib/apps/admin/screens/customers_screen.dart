@@ -20,7 +20,7 @@ class _State extends State<AdminCustomersScreen> {
     // users row carries whichever contact method the pilot is using.
     final rows = await supabase.from('users').select().eq('role', 'customer');
     _customers = (rows as List).cast<Map<String, dynamic>>();
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _setActive(String id, bool active) async {

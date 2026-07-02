@@ -22,7 +22,7 @@ class _State extends State<AdminAgentsScreen> {
   Future<void> _load() async {
     final rows = await supabase.from('delivery_agents').select();
     _agents = (rows as List).map((e) => DeliveryAgent.fromMap(e)).toList();
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _setVerified(DeliveryAgent agent, bool verified) async {
@@ -36,8 +36,14 @@ class _State extends State<AdminAgentsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
+    // Only pin agents that are actually online (available) with a location,
+    // matching the "Online/Offline" label shown in the list.
     final online = _agents
-        .where((a) => a.isVerified && a.currentLat != null && a.currentLng != null)
+        .where((a) =>
+            a.isVerified &&
+            a.isAvailable &&
+            a.currentLat != null &&
+            a.currentLng != null)
         .toList();
     return Padding(
       padding: const EdgeInsets.all(24),

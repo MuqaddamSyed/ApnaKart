@@ -91,6 +91,12 @@ class _State extends ConsumerState<PackingScreen> {
           .read(orderServiceProvider)
           .updateOrderStatus(widget.orderId, OrderStatus.preparing);
 
+      // Recompute order + session totals from packed quantities so the
+      // customer is billed for what was actually available.
+      await ref
+          .read(orderServiceProvider)
+          .recomputeOrderAndSessionTotals(widget.orderId);
+
       // Notify customer of revised total.
       if (_customerId != null) {
         final allAvail = _items.every((i) => (i.isAvailable ?? true));

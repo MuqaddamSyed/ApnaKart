@@ -14,7 +14,7 @@ class Routes {
   static const supplier = '/supplier';   // /supplier/:id
   static const cart = '/cart';
   static const addresses = '/addresses';
-  static const tracking = '/tracking';    // /tracking/:orderId
+  static const tracking = '/tracking';    // /tracking/:sessionId
   static const history = '/history';
   static const profile = '/profile';
 
@@ -27,7 +27,7 @@ class Routes {
 
   // delivery app
   static const status = '/status';
-  static const active = '/active';        // /active/:orderId
+  static const active = '/active';        // /active/:sessionId
 
   // admin app
   static const overview = '/overview';

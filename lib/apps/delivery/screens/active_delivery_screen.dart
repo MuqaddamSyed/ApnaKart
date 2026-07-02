@@ -24,8 +24,11 @@ class ActiveDeliveryScreen extends ConsumerStatefulWidget {
 class _State extends ConsumerState<ActiveDeliveryScreen> {
   Timer? _ping;
   String? _error;
+  bool _busy = false;
+  bool _arrived = false;
   List<Order> _subOrders = [];
   String? _customerPhone;
+  StreamSubscription<List<Order>>? _subOrdersSub;
   // supplierId -> picked up
   final Map<String, bool> _pickedUp = {};
 
@@ -34,9 +37,32 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
     super.initState();
     _startPinging();
     _loadDetails();
+    // Live sub-order updates so pickup/arrival state stays in sync.
+    _subOrdersSub = ref
+        .read(orderServiceProvider)
+        .listenToSessionOrders(widget.sessionId)
+        .listen((orders) {
+      if (!mounted || orders.isEmpty) return;
+      // Keep the enriched _subOrders list (it carries supplier/customer joins
+      // the realtime stream lacks); only sync status-derived state here.
+      setState(() {
+        _arrived = orders.any((o) => o.status == OrderStatus.arrived);
+        for (final o in orders) {
+          // Reflect server-side status into the local picked-up map.
+          if (o.status == OrderStatus.on_the_way ||
+              o.status == OrderStatus.arrived ||
+              o.status == OrderStatus.delivered) {
+            _pickedUp[o.supplierId] = true;
+          } else {
+            _pickedUp.putIfAbsent(o.supplierId, () => false);
+          }
+        }
+      });
+    });
   }
 
   Future<void> _loadDetails() async {
+    // Initial snapshot carries the supplier/customer joins for display.
     final orders = await ref
         .read(orderServiceProvider)
         .getSessionOrders(widget.sessionId);
@@ -44,6 +70,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
       setState(() {
         _subOrders = orders;
         _customerPhone = orders.isNotEmpty ? orders.first.customerPhone : null;
+        _arrived = orders.any((o) => o.status == OrderStatus.arrived);
         for (final o in orders) {
           _pickedUp.putIfAbsent(o.supplierId, () => false);
         }
@@ -69,6 +96,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
   @override
   void dispose() {
     _ping?.cancel();
+    _subOrdersSub?.cancel();
     super.dispose();
   }
 
@@ -76,14 +104,24 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
     final uri = Uri.parse(
         'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
     if (await canLaunchUrl(uri)) {
-      launchUrl(uri, mode: LaunchMode.externalApplication);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open maps')),
+      );
     }
   }
 
   Future<void> _call(String? phone) async {
     if (phone == null || phone.isEmpty) return;
     final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) launchUrl(uri);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the dialer')),
+      );
+    }
   }
 
   bool get _allPickedUp =>
@@ -97,27 +135,47 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
   }
 
   Future<void> _markArrived() async {
-    await ref
-        .read(orderServiceProvider)
-        .markSessionArrived(widget.sessionId);
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(orderServiceProvider)
+          .markSessionArrived(widget.sessionId);
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Could not update: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _markAccepted() async {
+    if (_busy) return;
+    setState(() => _busy = true);
     try {
       await ref
           .read(orderServiceProvider)
           .completeSessionDelivery(widget.sessionId);
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      setState(() => _error = 'Could not complete: $e');
+      if (mounted) setState(() => _error = 'Could not complete: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _markRejected() async {
-    await ref
-        .read(orderServiceProvider)
-        .rejectSessionByCustomer(widget.sessionId);
-    if (mounted) Navigator.pop(context);
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(orderServiceProvider)
+          .rejectSessionByCustomer(widget.sessionId);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Could not update: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -129,11 +187,21 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
             .read(orderServiceProvider)
             .listenToSession(widget.sessionId),
         builder: (context, snap) {
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text('Could not load delivery: ${snap.error}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textMuted)),
+              ),
+            );
+          }
           if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           final session = snap.data!;
-          final isArrived = _subOrders.any((o) => o.status == OrderStatus.arrived);
+          final isArrived = _arrived;
           final destLat = session.deliveryLat ?? 14.47;
           final destLng = session.deliveryLng ?? 75.92;
 
@@ -302,7 +370,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                       ElevatedButton.icon(
                         icon: const Icon(Icons.location_on),
                         label: const Text('Reached Customer Location'),
-                        onPressed: _markArrived,
+                        onPressed: _busy ? null : _markArrived,
                       ),
 
                     // At the door: accept / reject.
@@ -323,7 +391,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                             backgroundColor: AppColors.secondary),
                         icon: const Icon(Icons.check_circle),
                         label: const Text('Delivered — customer accepted'),
-                        onPressed: _markAccepted,
+                        onPressed: _busy ? null : _markAccepted,
                       ),
                       const SizedBox(height: 8),
                       OutlinedButton.icon(
@@ -331,7 +399,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                             foregroundColor: AppColors.danger),
                         icon: const Icon(Icons.cancel),
                         label: const Text('Rejected by customer'),
-                        onPressed: _markRejected,
+                        onPressed: _busy ? null : _markRejected,
                       ),
                       if (_error != null)
                         Padding(

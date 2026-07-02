@@ -149,7 +149,9 @@ class _State extends State<AdminCatalogScreen> {
                     : AdminCard(
                         padding: EdgeInsets.zero,
                         child: SingleChildScrollView(
-                          child: DataTable(
+                          scrollDirection: Axis.horizontal,
+                          child: SingleChildScrollView(
+                            child: DataTable(
                             columnSpacing: 20,
                             columns: const [
                               DataColumn(label: Text('Image')),
@@ -161,11 +163,11 @@ class _State extends State<AdminCatalogScreen> {
                               DataColumn(label: Text('Available')),
                               DataColumn(label: Text('Actions')),
                             ],
-                            rows: _filtered.map((p) {
-                              final supplier = _suppliers
-                                  .where((s) => s.id == p.supplierId)
-                                  .firstOrNull;
-                              return DataRow(cells: [
+                              rows: _filtered.map((p) {
+                                final supplier = _suppliers
+                                    .where((s) => s.id == p.supplierId)
+                                    .firstOrNull;
+                                return DataRow(cells: [
                                 DataCell(p.imageUrl != null
                                     ? ClipRRect(
                                         borderRadius: BorderRadius.circular(6),

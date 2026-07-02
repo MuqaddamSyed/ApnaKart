@@ -52,13 +52,21 @@ class _State extends ConsumerState<StatusScreen> {
 
   Future<void> _toggle(bool v) async {
     final uid = supabase.auth.currentUser?.id;
-    if (!_approved) return;
+    if (!_approved || uid == null) return;
     setState(() => _online = v);
-    if (uid != null) {
+    try {
       await supabase
           .from('delivery_agents')
           .update({'is_available': v})
           .eq('id', uid);
+    } catch (e) {
+      // Revert on failure so the UI reflects the real DB state.
+      if (mounted) {
+        setState(() => _online = !v);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update status: $e')),
+        );
+      }
     }
   }
 
@@ -147,8 +155,19 @@ class _State extends ConsumerState<StatusScreen> {
                               leading: const Icon(Icons.shopping_bag,
                                   color: AppColors.primary),
                               title: Text('Order #${s.shortId}'),
-                              subtitle: Text(
-                                  '${s.subOrders.isEmpty ? '' : s.subOrders.length.toString() + ' shop(s) · '}${s.deliveryAddress ?? ''}'),
+                              subtitle: FutureBuilder<int>(
+                                future: ref
+                                    .read(orderServiceProvider)
+                                    .getSessionShopCount(s.id),
+                                builder: (context, countSnap) {
+                                  final count = countSnap.data;
+                                  final prefix = count == null
+                                      ? ''
+                                      : '$count shop${count == 1 ? '' : 's'} · ';
+                                  return Text(
+                                      '$prefix${s.deliveryAddress ?? ''}');
+                                },
+                              ),
                               trailing: ElevatedButton(
                                 child: const Text('View'),
                                 onPressed: () => showModalBottomSheet(

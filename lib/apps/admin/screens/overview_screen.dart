@@ -41,7 +41,7 @@ class _State extends State<OverviewScreen> {
             ].contains(s.status))
         .length;
 
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   List<double> _last7Days() {

@@ -26,10 +26,20 @@ class _State extends ConsumerState<OrderHistoryScreen> {
   Future<void> _load() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid != null) {
-      _orders = await ref.read(orderServiceProvider).getOrdersByCustomer(uid);
+      final all = await ref.read(orderServiceProvider).getOrdersByCustomer(uid);
+      // Collapse multi-supplier orders: one card per session (keep standalone
+      // legacy orders that have no session_id).
+      final seen = <String>{};
+      _orders = [
+        for (final o in all)
+          if (o.sessionId == null || seen.add(o.sessionId!)) o
+      ];
     }
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
+
+  static String _shortId(String id) =>
+      id.length >= 8 ? id.substring(0, 8) : id;
 
   @override
   Widget build(BuildContext context) {
@@ -43,11 +53,16 @@ class _State extends ConsumerState<OrderHistoryScreen> {
                   padding: const EdgeInsets.all(16),
                   children: _orders.map((o) => Card(
                         child: ListTile(
-                          title: Text('Order #${(o.sessionId ?? o.id).substring(0, 8)}'),
+                          title: Text('Order #${_shortId(o.sessionId ?? o.id)}'),
                           subtitle: Text('${formatDate(o.placedAt)}\n${formatRupees(o.total)}'),
                           isThreeLine: true,
                           trailing: StatusBadge(status: o.status),
-                          onTap: () => context.push('${Routes.tracking}/${o.sessionId ?? o.id}'),
+                          // Only session-based orders can open the tracking
+                          // screen (it queries order_sessions by id).
+                          onTap: o.sessionId == null
+                              ? null
+                              : () => context
+                                  .push('${Routes.tracking}/${o.sessionId}'),
                         ),
                       )).toList(),
                 ),

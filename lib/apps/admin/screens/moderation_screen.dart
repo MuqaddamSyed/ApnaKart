@@ -23,7 +23,7 @@ class _State extends State<ModerationScreen> {
   Future<void> _load() async {
     final rows = await supabase.from('products').select().order('created_at', ascending: false);
     _products = (rows as List).map((e) => Product.fromMap(e)).toList();
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _remove(Product p) async {

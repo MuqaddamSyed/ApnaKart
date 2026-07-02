@@ -21,10 +21,12 @@ class IncomingOrderSheet extends ConsumerStatefulWidget {
 class _State extends ConsumerState<IncomingOrderSheet> {
   int _seconds = AppConstants.acceptWindowSeconds;
   Timer? _timer;
+  int? _shopCount;
 
   @override
   void initState() {
     super.initState();
+    _loadShopCount();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_seconds <= 1) {
         t.cancel();
@@ -33,6 +35,13 @@ class _State extends ConsumerState<IncomingOrderSheet> {
         setState(() => _seconds--);
       }
     });
+  }
+
+  Future<void> _loadShopCount() async {
+    final count = await ref
+        .read(orderServiceProvider)
+        .getSessionShopCount(widget.session.id);
+    if (mounted) setState(() => _shopCount = count);
   }
 
   @override
@@ -82,7 +91,9 @@ class _State extends ConsumerState<IncomingOrderSheet> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.store, color: AppColors.primary),
-            title: Text('${s.subOrders.length > 1 ? s.subOrders.length.toString() + ' shops' : '1 shop'} to visit'),
+            title: Text(_shopCount == null
+                ? 'Shops to visit'
+                : '${_shopCount == 1 ? '1 shop' : '$_shopCount shops'} to visit'),
             subtitle: Text('Order #${s.shortId}'),
           ),
           ListTile(

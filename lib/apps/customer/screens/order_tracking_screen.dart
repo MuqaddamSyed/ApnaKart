@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -22,15 +23,54 @@ class OrderTrackingScreen extends ConsumerStatefulWidget {
 class _State extends ConsumerState<OrderTrackingScreen> {
   Map<String, dynamic>? _agent;
   List<Order> _subOrders = [];
+  // Live status per sub-order id, driven by the realtime stream (which lacks
+  // the supplier-name joins that _subOrders carries for display).
+  Map<String, OrderStatus> _liveStatus = {};
   bool _loading = false;
+  Timer? _agentTimer;
+  StreamSubscription<List<Order>>? _subOrdersSub;
 
   @override
   void initState() {
     super.initState();
     _loadDetails();
+    // Live sub-order updates so arrival/status reflects the delivery agent.
+    _subOrdersSub = ref
+        .read(orderServiceProvider)
+        .listenToSessionOrders(widget.sessionId)
+        .listen((orders) {
+      if (mounted && orders.isNotEmpty) {
+        setState(() {
+          _liveStatus = {for (final o in orders) o.id: o.status};
+        });
+      }
+    });
+    // Poll the agent's live location every 15s for map + ETA.
+    _agentTimer = Timer.periodic(
+        const Duration(seconds: 15), (_) => _loadAgent());
+  }
+
+  @override
+  void dispose() {
+    _agentTimer?.cancel();
+    _subOrdersSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadDetails() async {
+    await _loadAgent();
+    // Initial sub-order snapshot with supplier names/joins for display.
+    final orders =
+        await ref.read(orderServiceProvider).getSessionOrders(widget.sessionId);
+    if (mounted && orders.isNotEmpty) {
+      setState(() {
+        _subOrders = orders;
+        _liveStatus = {for (final o in orders) o.id: o.status};
+      });
+    }
+  }
+
+  Future<void> _loadAgent() async {
     final session = await supabase
         .from('order_sessions')
         .select('delivery_id')
@@ -45,16 +85,18 @@ class _State extends ConsumerState<OrderTrackingScreen> {
           .maybeSingle();
       if (mounted) setState(() => _agent = a);
     }
-
-    final orders =
-        await ref.read(orderServiceProvider).getSessionOrders(widget.sessionId);
-    if (mounted) setState(() => _subOrders = orders);
   }
 
   Future<void> _call(String? phone) async {
     if (phone == null || phone.isEmpty) return;
     final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) launchUrl(uri);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the dialer')),
+      );
+    }
   }
 
   Future<void> _accept() async {
@@ -64,6 +106,12 @@ class _State extends ConsumerState<OrderTrackingScreen> {
       await ref
           .read(orderServiceProvider)
           .completeSessionDelivery(widget.sessionId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -76,17 +124,32 @@ class _State extends ConsumerState<OrderTrackingScreen> {
       await ref
           .read(orderServiceProvider)
           .rejectSessionByCustomer(widget.sessionId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _cancel() async {
-    // Cancel all sub-orders in the session.
-    for (final o in _subOrders) {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
       await ref
           .read(orderServiceProvider)
-          .updateOrderStatus(o.id, OrderStatus.cancelled);
+          .cancelSessionByCustomer(widget.sessionId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -100,14 +163,25 @@ class _State extends ConsumerState<OrderTrackingScreen> {
             .read(orderServiceProvider)
             .listenToSession(widget.sessionId),
         builder: (context, snap) {
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text('Could not load order: ${snap.error}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textMuted)),
+              ),
+            );
+          }
           if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           final session = snap.data!;
           final agentLat = (_agent?['current_lat'] as num?)?.toDouble();
           final agentLng = (_agent?['current_lng'] as num?)?.toDouble();
+          // Use live status map so isArrived updates without re-fetching.
           final isArrived = session.status == SessionStatus.out_for_delivery &&
-              _subOrders.any((o) => o.status == OrderStatus.arrived);
+              _liveStatus.values.any((s) => s == OrderStatus.arrived);
           final isDelivered = session.status == SessionStatus.delivered;
           final isCancelled = session.status == SessionStatus.cancelled;
 
@@ -202,19 +276,22 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                   ),
                 ),
               const SizedBox(height: 12),
-              // Shops in this order.
+              // Shops in this order — show live status.
               if (_subOrders.isNotEmpty) ...[
                 const Text('Shops',
                     style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                ..._subOrders.map((o) => Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.store,
-                            color: AppColors.primary),
-                        title: Text(o.supplierName ?? o.supplierId.substring(0, 8)),
-                        subtitle: Text(o.status.label),
-                      ),
-                    )),
+                ..._subOrders.map((o) {
+                  final status = _liveStatus[o.id] ?? o.status;
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.store,
+                          color: AppColors.primary),
+                      title: Text(o.supplierName ?? _shortId(o.supplierId)),
+                      subtitle: Text(status.label),
+                    ),
+                  );
+                }),
                 const SizedBox(height: 8),
               ],
               // Delivery agent info.
@@ -286,7 +363,7 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: OutlinedButton(
-                    onPressed: _cancel,
+                    onPressed: _loading ? null : _cancel,
                     style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.danger),
                     child: const Text('Cancel Order'),
@@ -298,6 +375,9 @@ class _State extends ConsumerState<OrderTrackingScreen> {
       ),
     );
   }
+
+  static String _shortId(String id) =>
+      id.length >= 8 ? id.substring(0, 8) : id;
 
   Color _statusColor(SessionStatus s) {
     switch (s) {

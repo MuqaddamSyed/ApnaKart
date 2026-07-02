@@ -74,5 +74,6 @@ class OrderSession {
         subOrders: subOrders,
       );
 
-  String get shortId => displayId ?? id.substring(0, 8);
+  String get shortId =>
+      displayId ?? (id.length >= 8 ? id.substring(0, 8) : id);
 }
