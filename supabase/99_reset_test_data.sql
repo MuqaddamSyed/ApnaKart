@@ -4,8 +4,8 @@
 --
 -- What it clears:
 --   • every public table (users, customers, suppliers, delivery_agents,
---     addresses, products, orders, order_items, notifications,
---     device_tokens, phone_reuse_flags)
+--     addresses, products, orders, order_items, order_sessions,
+--     order_item_status, notifications, device_tokens, phone_reuse_flags)
 --   • every auth user (so emails + phone numbers are free to reuse)
 --
 -- It does NOT touch: schema, RLS policies, storage buckets/policies,
@@ -13,9 +13,13 @@
 -- ============================================================
 
 -- 1. Wipe all application tables (CASCADE handles child rows/FKs).
+--    Includes the v2 tables (order_sessions, order_item_status) so no
+--    orphaned session/packing data is left behind.
 truncate table
+  order_item_status,
   order_items,
   orders,
+  order_sessions,
   products,
   addresses,
   customers,

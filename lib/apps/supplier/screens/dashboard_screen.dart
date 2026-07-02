@@ -21,6 +21,7 @@ class _State extends ConsumerState<DashboardScreen> {
   List<Order> _orders = [];
   bool _loading = true;
   double _todayEarnings = 0;
+  double _totalEarnings = 0;
 
   @override
   void initState() { super.initState(); _load(); }
@@ -35,9 +36,10 @@ class _State extends ConsumerState<DashboardScreen> {
       if (_approved) {
         _orders = await ref.read(orderServiceProvider).getOrdersBySupplier(uid);
         _todayEarnings = await ref.read(orderServiceProvider).getTodaySupplierEarnings(uid);
+        _totalEarnings = await ref.read(orderServiceProvider).getTotalSupplierEarnings(uid);
       }
     }
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _toggleOpen(bool v) async {
@@ -103,6 +105,11 @@ class _State extends ConsumerState<DashboardScreen> {
                     const SizedBox(width: 12),
                     _stat("Today's Earnings", formatRupees(_todayEarnings), Icons.payments),
                   ]),
+                  const SizedBox(height: 12),
+                  // Lifetime earnings across all delivered orders.
+                  _stat('Total Earnings', formatRupees(_totalEarnings),
+                      Icons.account_balance_wallet,
+                      full: true, color: AppColors.secondary),
                   const SizedBox(height: 12),
                   _stat('Pending Orders', '$pending', Icons.pending_actions, full: true,
                       color: pending > 0 ? AppColors.warning : AppColors.secondary),

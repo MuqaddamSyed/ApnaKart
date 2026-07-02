@@ -323,6 +323,13 @@ class OrderService {
     return (result as num?)?.toDouble() ?? 0;
   }
 
+  /// Lifetime earnings: sum of subtotals across all delivered orders.
+  Future<double> getTotalSupplierEarnings(String supplierId) async {
+    final result = await supabase
+        .rpc('get_total_supplier_earnings', params: {'p_supplier_id': supplierId});
+    return (result as num?)?.toDouble() ?? 0;
+  }
+
   Future<List<Order>> getSessionOrders(String sessionId) async {
     final rows = await supabase
         .from('orders')
