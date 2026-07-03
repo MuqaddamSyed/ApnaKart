@@ -49,12 +49,9 @@ class NotificationService {
     String type = 'general',
   }) async {
     try {
-      await supabase.from('notifications').insert({
-        'user_id': userId,
-        'title': title,
-        'body': body,
-        'type': type,
-      });
+      // Logging is done server-side in the Edge Function (service role) so RLS
+      // never blocks a cross-user notification (customer -> supplier). Doing the
+      // insert here previously threw and silently dropped the whole push.
       await supabase.functions.invoke('send-push', body: {
         'userId': userId,
         'title': title,

@@ -287,6 +287,27 @@ class OrderService {
             .toList());
   }
 
+  /// Total COD cash a delivery agent has collected across all delivered
+  /// orders (caller-checked server-side).
+  Future<double> getAgentCodTotal(String agentId) async {
+    final result = await supabase
+        .rpc('get_agent_cod_total', params: {'p_agent_id': agentId});
+    return (result as num?)?.toDouble() ?? 0;
+  }
+
+  /// Sessions ready for pickup — direct fetch (RLS-filtered). Used so the
+  /// delivery pool doesn't depend solely on realtime, which can silently fail
+  /// to deliver the row and leave the agent with an empty screen.
+  Future<List<OrderSession>> getAvailableSessions() async {
+    final rows = await supabase
+        .from('order_sessions')
+        .select()
+        .eq('status', 'all_confirmed')
+        .isFilter('delivery_id', null)
+        .order('placed_at', ascending: false);
+    return (rows as List).map((e) => OrderSession.fromMap(e)).toList();
+  }
+
   /// Sessions ready for pickup (all suppliers confirmed, unassigned).
   Stream<List<OrderSession>> listenToAvailableSessions() {
     return supabase

@@ -43,15 +43,35 @@ Deno.serve(async (req: Request) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceKey);
 
-    let query = admin.from("device_tokens").select("token");
+    let query = admin.from("device_tokens").select("user_id, token");
     if (payload.userId) query = query.eq("user_id", payload.userId);
     if (payload.appRole) query = query.eq("app_role", payload.appRole);
 
     const { data: rows, error } = await query;
     if (error) return json({ error: error.message }, 400);
 
+    // Log an in-app notification for each recipient here (service role) so RLS
+    // never blocks cross-user notifications (e.g. customer -> supplier) — that
+    // client-side insert was throwing and dropping the supplier's alert.
+    const type = payload.data?.type ?? "general";
+    const recipientIds = new Set<string>();
+    if (payload.userId) recipientIds.add(payload.userId);
+    for (const r of rows ?? []) if (r.user_id) recipientIds.add(r.user_id);
+    if (recipientIds.size > 0) {
+      await admin.from("notifications").insert(
+        [...recipientIds].map((uid) => ({
+          user_id: uid,
+          title: payload.title,
+          body: payload.body,
+          type,
+        })),
+      );
+    }
+
     const tokens = [...new Set((rows ?? []).map((row) => row.token).filter(Boolean))];
-    if (tokens.length === 0) return json({ success: true, sent: 0 });
+    if (tokens.length === 0) {
+      return json({ success: true, sent: 0, logged: recipientIds.size });
+    }
 
     const accessToken = await getAccessToken();
     const projectId = Deno.env.get("FIREBASE_PROJECT_ID")!;
