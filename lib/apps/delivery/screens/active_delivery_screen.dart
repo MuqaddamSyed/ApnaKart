@@ -30,6 +30,8 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
   String? _customerPhone;
   StreamSubscription<List<Order>>? _subOrdersSub;
   final _otpCtrl = TextEditingController();
+  // supplierId -> phone
+  Map<String, String> _supplierPhones = {};
   // supplierId -> picked up
   final Map<String, bool> _pickedUp = {};
 
@@ -64,13 +66,16 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
 
   Future<void> _loadDetails() async {
     // Initial snapshot carries the supplier/customer joins for display.
-    final orders = await ref
-        .read(orderServiceProvider)
-        .getSessionOrders(widget.sessionId);
+    final service = ref.read(orderServiceProvider);
+    final orders = await service.getSessionOrders(widget.sessionId);
+    // Contacts come from a privacy-checked RPC (the users-table RLS hides
+    // phones from a normal join). Supplier phones + the customer phone.
+    final contacts = await service.getSessionContacts(widget.sessionId);
     if (mounted) {
       setState(() {
         _subOrders = orders;
-        _customerPhone = orders.isNotEmpty ? orders.first.customerPhone : null;
+        _supplierPhones = contacts.supplierPhones;
+        _customerPhone = contacts.customerPhone;
         _arrived = orders.any((o) => o.status == OrderStatus.arrived);
         for (final o in orders) {
           _pickedUp.putIfAbsent(o.supplierId, () => false);
@@ -279,12 +284,13 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                                         fontWeight: FontWeight.w600),
                                   ),
                                 ),
-                                if (o.supplierPhone != null)
+                                if (_supplierPhones[o.supplierId] != null)
                                   IconButton(
                                     icon: const Icon(Icons.call,
                                         color: AppColors.secondary, size: 20),
-                                    tooltip: 'Call supplier',
-                                    onPressed: () => _call(o.supplierPhone),
+                                    tooltip: 'Call shop',
+                                    onPressed: () =>
+                                        _call(_supplierPhones[o.supplierId]),
                                   ),
                               ]),
                               if (o.supplierAddress != null)
@@ -348,7 +354,9 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                                   style:
                                       TextStyle(fontWeight: FontWeight.w600)),
                               const Spacer(),
-                              if (_customerPhone != null)
+                              // Customer phone unlocks once everything is
+                              // picked up (so the agent can call on the way).
+                              if (_allPickedUp && _customerPhone != null)
                                 IconButton(
                                   icon: const Icon(Icons.call,
                                       color: AppColors.secondary, size: 20),
@@ -363,6 +371,15 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                                       fontSize: 12,
                                       color: AppColors.textMuted)),
                             ),
+                            if (_allPickedUp && _customerPhone != null)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 32, top: 2),
+                                child: Text('📞 $_customerPhone',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.secondary,
+                                        fontWeight: FontWeight.w600)),
+                              ),
                             const SizedBox(height: 8),
                             OutlinedButton.icon(
                               icon: const Icon(Icons.navigation, size: 16),

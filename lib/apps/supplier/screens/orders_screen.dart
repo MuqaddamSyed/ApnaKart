@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/order_item.dart';
@@ -162,6 +163,8 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
             const SizedBox(height: 8),
             // Ordered products so the supplier knows what to pack/confirm.
             _itemsList(o.id),
+            // Delivery partner's contact once the order has been claimed.
+            _agentContact(o),
             const SizedBox(height: 8),
             actions,
           ],
@@ -223,6 +226,61 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
                     ]),
                   )),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _call(String? phone) async {
+    if (phone == null || phone.isEmpty) return;
+    final uri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  /// Shows the assigned delivery partner's name + phone (with a call button)
+  /// once an agent has claimed the order. Renders nothing before that.
+  Widget _agentContact(Order o) {
+    // No agent until the order has been accepted and moved past 'placed'.
+    if (o.status == OrderStatus.placed || o.status == OrderStatus.cancelled) {
+      return const SizedBox.shrink();
+    }
+    return FutureBuilder<({String? name, String? phone})>(
+      future: ref.read(orderServiceProvider).getOrderAgentContact(o.id),
+      builder: (context, snap) {
+        final phone = snap.data?.phone;
+        if (phone == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(children: [
+              const Icon(Icons.delivery_dining,
+                  color: AppColors.secondary, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(snap.data?.name ?? 'Delivery partner',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text(phone,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.secondary)),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.call, color: AppColors.secondary),
+                tooltip: 'Call delivery partner',
+                onPressed: () => _call(phone),
+              ),
+            ]),
           ),
         );
       },

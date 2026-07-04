@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routing/app_router.dart';
@@ -23,6 +24,7 @@ class _State extends ConsumerState<IncomingOrderSheet> {
   int _seconds = AppConstants.acceptWindowSeconds;
   Timer? _timer;
   List<Order> _shops = [];
+  Map<String, String> _supplierPhones = {};
   bool _accepting = false;
 
   @override
@@ -40,9 +42,21 @@ class _State extends ConsumerState<IncomingOrderSheet> {
   }
 
   Future<void> _loadShops() async {
-    final shops =
-        await ref.read(orderServiceProvider).getSessionOrders(widget.session.id);
-    if (mounted) setState(() => _shops = shops);
+    final service = ref.read(orderServiceProvider);
+    final shops = await service.getSessionOrders(widget.session.id);
+    final contacts = await service.getSessionContacts(widget.session.id);
+    if (mounted) {
+      setState(() {
+        _shops = shops;
+        _supplierPhones = contacts.supplierPhones;
+      });
+    }
+  }
+
+  Future<void> _call(String? phone) async {
+    if (phone == null || phone.isEmpty) return;
+    final uri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   @override
@@ -125,22 +139,37 @@ class _State extends ConsumerState<IncomingOrderSheet> {
                   style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
             )
           else
-            ..._shops.map((o) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    dense: true,
-                    leading:
-                        const Icon(Icons.store, color: AppColors.primary),
-                    title: Text(o.supplierName ?? 'Supplier',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(o.supplierAddress ?? 'Address not set',
-                        style: const TextStyle(fontSize: 12)),
-                    trailing: o.supplierPhone != null
-                        ? const Icon(Icons.phone,
-                            size: 16, color: AppColors.secondary)
-                        : null,
+            ..._shops.map((o) {
+              final phone = _supplierPhones[o.supplierId];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.store, color: AppColors.primary),
+                  title: Text(o.supplierName ?? 'Supplier',
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(o.supplierAddress ?? 'Address not set',
+                          style: const TextStyle(fontSize: 12)),
+                      if (phone != null)
+                        Text(phone,
+                            style: const TextStyle(
+                                fontSize: 12, color: AppColors.secondary)),
+                    ],
                   ),
-                )),
+                  trailing: phone != null
+                      ? IconButton(
+                          icon: const Icon(Icons.call,
+                              color: AppColors.secondary),
+                          tooltip: 'Call shop',
+                          onPressed: () => _call(phone),
+                        )
+                      : null,
+                ),
+              );
+            }),
 
           const SizedBox(height: 4),
           ListTile(

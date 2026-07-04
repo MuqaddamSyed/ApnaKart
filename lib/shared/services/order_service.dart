@@ -287,6 +287,46 @@ class OrderService {
             .toList());
   }
 
+  /// The assigned delivery agent's contact for an order the caller supplies,
+  /// so the supplier can call the partner for pickup. Null if unassigned.
+  Future<({String? name, String? phone})> getOrderAgentContact(String orderId) async {
+    try {
+      final res = await supabase
+          .rpc('get_order_agent_contact', params: {'p_order_id': orderId});
+      if (res == null) return (name: null, phone: null);
+      final m = (res as Map).cast<String, dynamic>();
+      return (name: m['name'] as String?, phone: m['phone'] as String?);
+    } catch (_) {
+      return (name: null, phone: null);
+    }
+  }
+
+  /// Contacts for a session (server-side, privacy-checked): supplier phones
+  /// for any verified agent, customer phone only for the assigned agent.
+  /// Returns { supplierPhones: {supplierId: phone}, customerName, customerPhone }.
+  Future<({Map<String, String> supplierPhones, String? customerName, String? customerPhone})>
+      getSessionContacts(String sessionId) async {
+    try {
+      final res = await supabase
+          .rpc('get_session_contacts', params: {'p_session_id': sessionId});
+      final map = (res as Map).cast<String, dynamic>();
+      final phones = <String, String>{};
+      for (final s in (map['suppliers'] as List? ?? [])) {
+        final sid = s['supplier_id'] as String?;
+        final phone = s['phone'] as String?;
+        if (sid != null && phone != null && phone.isNotEmpty) phones[sid] = phone;
+      }
+      final cust = map['customer'] as Map?;
+      return (
+        supplierPhones: phones,
+        customerName: cust?['name'] as String?,
+        customerPhone: cust?['phone'] as String?,
+      );
+    } catch (_) {
+      return (supplierPhones: <String, String>{}, customerName: null, customerPhone: null);
+    }
+  }
+
   /// Total COD cash a delivery agent has collected across all delivered
   /// orders (caller-checked server-side).
   Future<double> getAgentCodTotal(String agentId) async {
