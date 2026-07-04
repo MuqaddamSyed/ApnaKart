@@ -31,10 +31,31 @@ class _State extends ConsumerState<StatusScreen> {
   void initState() {
     super.initState();
     _load();
-    // Refresh the pool every 10s while online (cheap, and reliable).
+    // Refresh stats (deliveries / earnings / COD) + the pool every 10s, so the
+    // dashboard reflects a completed delivery without needing a manual reload.
     _poll = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (_approved) _refreshStats();
       if (_approved && _online) _refreshPool();
     });
+  }
+
+  Future<void> _refreshStats() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final row = await supabase
+          .from('delivery_agents')
+          .select()
+          .eq('id', uid)
+          .maybeSingle();
+      final cod = await ref.read(orderServiceProvider).getAgentCodTotal(uid);
+      if (mounted) {
+        setState(() {
+          if (row != null) _agent = DeliveryAgent.fromMap(row);
+          _codTotal = cod;
+        });
+      }
+    } catch (_) {/* keep last known values on a transient failure */}
   }
 
   @override

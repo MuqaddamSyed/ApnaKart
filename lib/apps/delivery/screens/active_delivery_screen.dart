@@ -138,11 +138,14 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
 
   Future<void> _markArrived() async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() { _busy = true; _error = null; });
     try {
       await ref
           .read(orderServiceProvider)
           .markSessionArrived(widget.sessionId);
+      // Advance the UI immediately instead of waiting on the realtime stream
+      // (which can lag and make the button look hung).
+      if (mounted) setState(() => _arrived = true);
     } catch (e) {
       if (mounted) setState(() => _error = 'Could not update: $e');
     } finally {

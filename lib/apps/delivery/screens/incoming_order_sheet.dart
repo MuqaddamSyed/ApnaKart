@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routing/app_router.dart';
+import '../../../shared/models/order.dart';
 import '../../../shared/models/order_session.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/services/supabase_client.dart';
@@ -21,27 +22,27 @@ class IncomingOrderSheet extends ConsumerStatefulWidget {
 class _State extends ConsumerState<IncomingOrderSheet> {
   int _seconds = AppConstants.acceptWindowSeconds;
   Timer? _timer;
-  int? _shopCount;
+  List<Order> _shops = [];
+  bool _accepting = false;
 
   @override
   void initState() {
     super.initState();
-    _loadShopCount();
+    _loadShops();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_seconds <= 1) {
         t.cancel();
-        if (mounted) Navigator.pop(context);
+        if (mounted) Navigator.of(context).pop();
       } else {
         setState(() => _seconds--);
       }
     });
   }
 
-  Future<void> _loadShopCount() async {
-    final count = await ref
-        .read(orderServiceProvider)
-        .getSessionShopCount(widget.session.id);
-    if (mounted) setState(() => _shopCount = count);
+  Future<void> _loadShops() async {
+    final shops =
+        await ref.read(orderServiceProvider).getSessionOrders(widget.session.id);
+    if (mounted) setState(() => _shops = shops);
   }
 
   @override
@@ -50,20 +51,38 @@ class _State extends ConsumerState<IncomingOrderSheet> {
     super.dispose();
   }
 
+  void _decline() {
+    _timer?.cancel();
+    Navigator.of(context).pop();
+  }
+
   Future<void> _accept() async {
+    if (_accepting) return;
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
-    final claimed = await ref
-        .read(orderServiceProvider)
-        .claimSession(widget.session.id, uid);
-    if (!mounted) return;
-    Navigator.pop(context);
-    if (claimed) {
-      context.push('${Routes.active}/${widget.session.id}');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Another partner already took this order')),
-      );
+    setState(() => _accepting = true);
+    _timer?.cancel();
+    try {
+      final claimed = await ref
+          .read(orderServiceProvider)
+          .claimSession(widget.session.id, uid);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      if (claimed) {
+        context.push('${Routes.active}/${widget.session.id}');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Another partner already took this order')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _accepting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not accept: $e')),
+        );
+      }
     }
   }
 
@@ -86,16 +105,44 @@ class _State extends ConsumerState<IncomingOrderSheet> {
                   style: const TextStyle(color: Colors.white)),
             ),
           ]),
+          const SizedBox(height: 4),
+          Text('Order #${s.shortId}',
+              style: const TextStyle(color: AppColors.textMuted)),
           const SizedBox(height: 12),
-          // Show all shops in the session.
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.store, color: AppColors.primary),
-            title: Text(_shopCount == null
-                ? 'Shops to visit'
-                : '${_shopCount == 1 ? '1 shop' : '$_shopCount shops'} to visit'),
-            subtitle: Text('Order #${s.shortId}'),
+
+          // Shops to pick up from (name, shop, address).
+          Text(
+            _shops.isEmpty
+                ? 'Pickup shops'
+                : '${_shops.length} pickup ${_shops.length == 1 ? 'shop' : 'shops'}',
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
+          const SizedBox(height: 6),
+          if (_shops.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('Loading shop details…',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            )
+          else
+            ..._shops.map((o) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    dense: true,
+                    leading:
+                        const Icon(Icons.store, color: AppColors.primary),
+                    title: Text(o.supplierName ?? 'Supplier',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(o.supplierAddress ?? 'Address not set',
+                        style: const TextStyle(fontSize: 12)),
+                    trailing: o.supplierPhone != null
+                        ? const Icon(Icons.phone,
+                            size: 16, color: AppColors.secondary)
+                        : null,
+                  ),
+                )),
+
+          const SizedBox(height: 4),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading:
@@ -111,14 +158,22 @@ class _State extends ConsumerState<IncomingOrderSheet> {
           Row(children: [
             Expanded(
               child: ElevatedButton(
-                  onPressed: _accept, child: const Text('Accept')),
+                onPressed: _accepting ? null : _accept,
+                child: _accepting
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Text('Accept'),
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.danger),
-                onPressed: () => Navigator.pop(context),
+                onPressed: _accepting ? null : _decline,
                 child: const Text('Decline'),
               ),
             ),
