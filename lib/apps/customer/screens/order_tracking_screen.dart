@@ -99,23 +99,6 @@ class _State extends ConsumerState<OrderTrackingScreen> {
     }
   }
 
-  Future<void> _reject() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    try {
-      await ref
-          .read(orderServiceProvider)
-          .rejectSessionByCustomer(widget.sessionId);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
 
   Future<void> _cancel() async {
     if (_loading) return;
@@ -331,14 +314,6 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.danger),
-                  icon: const Icon(Icons.cancel),
-                  label: const Text('Reject / Return'),
-                  onPressed: _loading ? null : _reject,
                 ),
               ],
               // Delivered state.
