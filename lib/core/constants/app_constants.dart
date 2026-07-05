@@ -5,6 +5,9 @@ class AppConstants {
   // Delivery fee: flat, charged on every order regardless of amount.
   static const double flatDeliveryFee = 10.0;
 
+  // Minimum order value (items subtotal) required to check out.
+  static const double minOrderValue = 39.0;
+
   // Supplier discovery radius
   static const double defaultRadiusKm = 5.0;
 

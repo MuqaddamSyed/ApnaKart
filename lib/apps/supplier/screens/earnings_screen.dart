@@ -33,8 +33,14 @@ class _State extends ConsumerState<EarningsScreen> {
   List<Order> get _filtered {
     final now = DateTime.now();
     return _orders.where((o) {
-      final diff = now.difference(o.placedAt).inDays;
-      if (_range == 0) return o.placedAt.day == now.day;
+      // placed_at is UTC; compare in local time so "today" is the real day.
+      final placed = o.placedAt.toLocal();
+      final diff = now.difference(placed).inDays;
+      if (_range == 0) {
+        return placed.year == now.year &&
+            placed.month == now.month &&
+            placed.day == now.day;
+      }
       if (_range == 1) return diff < 7;
       return diff < 30;
     }).toList();

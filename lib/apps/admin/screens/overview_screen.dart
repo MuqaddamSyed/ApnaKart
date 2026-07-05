@@ -50,9 +50,9 @@ class _State extends State<OverviewScreen> {
       final day = now.subtract(Duration(days: 6 - i));
       return _sessions
           .where((s) =>
-              s.placedAt.year == day.year &&
-              s.placedAt.month == day.month &&
-              s.placedAt.day == day.day)
+              s.placedAt.toLocal().year == day.year &&
+              s.placedAt.toLocal().month == day.month &&
+              s.placedAt.toLocal().day == day.day)
           .length
           .toDouble();
     });
@@ -64,9 +64,9 @@ class _State extends State<OverviewScreen> {
 
     final now = DateTime.now();
     final todaySessions = _sessions.where((s) =>
-        s.placedAt.year == now.year &&
-        s.placedAt.month == now.month &&
-        s.placedAt.day == now.day);
+        s.placedAt.toLocal().year == now.year &&
+        s.placedAt.toLocal().month == now.month &&
+        s.placedAt.toLocal().day == now.day);
     final revenue = todaySessions.fold<double>(0, (s, o) => s + o.total);
     final series = _last7Days();
 

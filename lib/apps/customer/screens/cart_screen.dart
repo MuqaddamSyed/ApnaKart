@@ -307,15 +307,34 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: ElevatedButton(
-            onPressed: _placing ? null : _placeOrder,
-            child: _placing
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : Text('Place Order  •  ${formatRupees(total)}'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (subtotal < AppConstants.minOrderValue)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Minimum order is ${formatRupees(AppConstants.minOrderValue)}. Add ${formatRupees(AppConstants.minOrderValue - subtotal)} more to check out.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: AppColors.danger,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ElevatedButton(
+                onPressed: (_placing || subtotal < AppConstants.minOrderValue)
+                    ? null
+                    : _placeOrder,
+                child: _placing
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Text('Place Order  •  ${formatRupees(total)}'),
+              ),
+            ],
           ),
         ),
       ),

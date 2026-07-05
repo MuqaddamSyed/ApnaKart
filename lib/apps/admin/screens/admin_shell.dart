@@ -8,6 +8,7 @@ import 'overview_screen.dart';
 import 'orders_screen.dart';
 import 'suppliers_screen.dart';
 import 'catalog_screen.dart';
+import 'skus_screen.dart';
 import 'agents_screen.dart';
 import 'customers_screen.dart';
 import 'moderation_screen.dart';
@@ -28,6 +29,7 @@ class _State extends ConsumerState<AdminShell> {
     (Icons.receipt_long_outlined, 'Orders'),
     (Icons.storefront_outlined, 'Suppliers'),
     (Icons.inventory_2_outlined, 'Catalog'),
+    (Icons.category_outlined, 'SKUs'),
     (Icons.delivery_dining_outlined, 'Agents'),
     (Icons.people_outline, 'Customers'),
     (Icons.flag_outlined, 'Moderation'),
@@ -39,6 +41,7 @@ class _State extends ConsumerState<AdminShell> {
     AdminOrdersScreen(),
     AdminSuppliersScreen(),
     AdminCatalogScreen(),
+    AdminSkusScreen(),
     AdminAgentsScreen(),
     AdminCustomersScreen(),
     ModerationScreen(),

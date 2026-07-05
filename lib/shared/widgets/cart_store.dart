@@ -41,8 +41,10 @@ class CartNotifier extends StateNotifier<CartState> {
   CartNotifier() : super(const CartState());
 
   void setQuantity(Product p, int qty) {
-    final all = Map<String, Map<String, OrderItem>>.from(
-        state.supplierItems.map((k, v) => MapEntry(k, Map.from(v))));
+    final all = <String, Map<String, OrderItem>>{
+      for (final e in state.supplierItems.entries)
+        e.key: Map<String, OrderItem>.from(e.value),
+    };
 
     all.putIfAbsent(p.supplierId, () => {});
     if (qty <= 0) {
@@ -67,8 +69,10 @@ class CartNotifier extends StateNotifier<CartState> {
   void setItemQuantity(OrderItem item, int qty) {
     final sid = item.supplierId;
     if (sid == null) return;
-    final all = Map<String, Map<String, OrderItem>>.from(
-        state.supplierItems.map((k, v) => MapEntry(k, Map.from(v))));
+    final all = <String, Map<String, OrderItem>>{
+      for (final e in state.supplierItems.entries)
+        e.key: Map<String, OrderItem>.from(e.value),
+    };
     if (!all.containsKey(sid)) return;
     if (qty <= 0) {
       all[sid]!.remove(item.productId);

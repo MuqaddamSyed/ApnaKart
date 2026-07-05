@@ -25,6 +25,8 @@ class _State extends ConsumerState<EditProductScreen> {
   final _stock = TextEditingController();
   String _unit = 'piece';
   String _category = AppConstants.productCategories.first;
+  // Categories this shop is verified for — the only ones it may tag products with.
+  List<String> _allowedCategories = [];
   bool _available = true;
   File? _image;
   String? _imageUrl;
@@ -32,7 +34,32 @@ class _State extends ConsumerState<EditProductScreen> {
   bool _adminManaged = false;
 
   @override
-  void initState() { super.initState(); if (widget.productId != null) _loadExisting(); }
+  void initState() {
+    super.initState();
+    _loadAllowedCategories();
+    if (widget.productId != null) _loadExisting();
+  }
+
+  Future<void> _loadAllowedCategories() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    final row = await supabase
+        .from('suppliers')
+        .select('category')
+        .eq('id', uid)
+        .maybeSingle();
+    final cats = (row?['category'] as List?)
+            ?.map((e) => e.toString())
+            .where(AppConstants.productCategories.contains)
+            .toList() ??
+        [];
+    if (!mounted) return;
+    setState(() {
+      _allowedCategories = cats;
+      // Default to the shop's (only/first) verified category.
+      if (cats.isNotEmpty && !cats.contains(_category)) _category = cats.first;
+    });
+  }
 
   Future<void> _loadExisting() async {
     final row = await supabase.from('products').select().eq('id', widget.productId!).single();
@@ -187,13 +214,31 @@ class _State extends ConsumerState<EditProductScreen> {
                 decoration:
                     const InputDecoration(labelText: 'Product name')),
           const SizedBox(height: 12),
-          DropdownButtonFormField(
-            value: _category,
-            decoration: const InputDecoration(labelText: 'Category'),
-            items: AppConstants.productCategories
-                .map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-            onChanged: (v) => setState(() => _category = v ?? AppConstants.productCategories.first),
-          ),
+          Builder(builder: (context) {
+            final cats = _allowedCategories.isNotEmpty
+                ? _allowedCategories
+                : AppConstants.productCategories;
+            // Verified for a single category → auto-selected, no dropdown.
+            if (cats.length == 1) {
+              return InputDecorator(
+                decoration: const InputDecoration(labelText: 'Category'),
+                child: Row(children: [
+                  const Icon(Icons.verified, size: 16, color: AppColors.secondary),
+                  const SizedBox(width: 6),
+                  Text(cats.first),
+                ]),
+              );
+            }
+            final value = cats.contains(_category) ? _category : cats.first;
+            return DropdownButtonFormField<String>(
+              value: value,
+              decoration: const InputDecoration(labelText: 'Category'),
+              items: cats
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (v) => setState(() => _category = v ?? cats.first),
+            );
+          }),
           const SizedBox(height: 12),
           DropdownButtonFormField(
             value: _unit,

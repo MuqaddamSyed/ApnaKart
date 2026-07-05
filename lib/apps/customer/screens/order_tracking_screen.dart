@@ -339,8 +339,8 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                               style: const TextStyle(
                                   fontSize: 40,
                                   letterSpacing: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.secondary),
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.black),
                             ),
                           ),
                         ),

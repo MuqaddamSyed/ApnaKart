@@ -22,22 +22,28 @@ class _State extends ConsumerState<DeliveryEarningsScreen> {
   Future<void> _load() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid != null) {
-      final rows = await supabase.from('orders')
-          .select('id, total, delivery_fee, delivered_at')
+      // The agent's earning is the SESSION delivery fee (orders carry 0 —
+      // the fee lives on the session in the multi-supplier model).
+      final rows = await supabase.from('order_sessions')
+          .select('id, display_id, delivery_fee, delivered_at')
           .eq('delivery_id', uid)
           .eq('status', 'delivered')
           .order('delivered_at', ascending: false);
       _deliveries = (rows as List).cast<Map<String, dynamic>>();
     }
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   List<Map<String, dynamic>> get _filtered {
     final now = DateTime.now();
     return _deliveries.where((d) {
-      final t = DateTime.tryParse(d['delivered_at']?.toString() ?? '') ?? now;
+      // delivered_at is UTC; compare in local time so "today" is the real day.
+      final t = (DateTime.tryParse(d['delivered_at']?.toString() ?? '') ?? now)
+          .toLocal();
       final diff = now.difference(t).inDays;
-      if (_range == 0) return t.day == now.day;
+      if (_range == 0) {
+        return t.year == now.year && t.month == now.month && t.day == now.day;
+      }
       if (_range == 1) return diff < 7;
       return diff < 30;
     }).toList();
@@ -46,7 +52,7 @@ class _State extends ConsumerState<DeliveryEarningsScreen> {
   @override
   Widget build(BuildContext context) {
     final f = _filtered;
-    final earnings = f.fold<double>(0, (s, d) => s + ((d['delivery_fee'] as num?)?.toDouble() ?? 20));
+    final earnings = f.fold<double>(0, (s, d) => s + ((d['delivery_fee'] as num?)?.toDouble() ?? 0));
     return Scaffold(
       appBar: AppBar(title: const Text('Earnings')),
       body: _loading
@@ -79,8 +85,10 @@ class _State extends ConsumerState<DeliveryEarningsScreen> {
               Expanded(
                 child: ListView(
                   children: f.map((d) => ListTile(
-                        title: Text('#${d['id'].toString().substring(0, 8)}'),
-                        trailing: Text(formatRupees((d['delivery_fee'] as num?)?.toDouble() ?? 20),
+                        title: Text(
+                            '#${(d['display_id'] as String?) ?? d['id'].toString().substring(0, 8)}'),
+                        trailing: Text(
+                            formatRupees((d['delivery_fee'] as num?)?.toDouble() ?? 0),
                             style: const TextStyle(fontWeight: FontWeight.w600)),
                       )).toList(),
                 ),

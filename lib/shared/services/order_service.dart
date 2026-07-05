@@ -40,6 +40,10 @@ class OrderService {
     final supplierSubtotals = supplierItems.map(
         (sid, items) => MapEntry(sid, items.fold<double>(0, (s, i) => s + i.totalPrice)));
     final grandSubtotal = supplierSubtotals.values.fold<double>(0, (s, v) => s + v);
+    if (grandSubtotal < AppConstants.minOrderValue) {
+      throw Exception(
+          'Minimum order value is ₹${AppConstants.minOrderValue.toStringAsFixed(0)}.');
+    }
     const deliveryFee = AppConstants.flatDeliveryFee;
     final total = grandSubtotal + deliveryFee;
 
