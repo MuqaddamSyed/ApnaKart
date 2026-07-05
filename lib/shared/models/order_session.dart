@@ -36,6 +36,7 @@ class OrderSession {
   final double total;
   final DateTime placedAt;
   final DateTime? deliveredAt;
+  final String deliveryMode; // 'agent' | 'self'
   final List<Order> subOrders;
 
   const OrderSession({
@@ -51,6 +52,7 @@ class OrderSession {
     this.total = 0,
     required this.placedAt,
     this.deliveredAt,
+    this.deliveryMode = 'agent',
     this.subOrders = const [],
   });
 
@@ -71,6 +73,7 @@ class OrderSession {
         deliveredAt: m['delivered_at'] != null
             ? DateTime.tryParse(m['delivered_at'].toString())
             : null,
+        deliveryMode: m['delivery_mode'] as String? ?? 'agent',
         subOrders: subOrders,
       );
 

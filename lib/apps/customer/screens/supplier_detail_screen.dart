@@ -37,6 +37,7 @@ class _State extends ConsumerState<SupplierDetailScreen> {
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
     if (_loading) return const Scaffold(body: SkeletonList());
+    final isOpen = _shop?['is_open'] as bool? ?? true;
     final byCategory = <String, List<Product>>{};
     for (final p in _products) {
       byCategory.putIfAbsent(p.category ?? 'Other', () => []).add(p);
@@ -76,6 +77,26 @@ class _State extends ConsumerState<SupplierDetailScreen> {
               ),
             ),
           ),
+          if (!isOpen)
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.danger.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(children: const [
+                Icon(Icons.storefront, color: AppColors.danger),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'This shop is currently closed. You can browse, but ordering is unavailable until it reopens.',
+                    style: TextStyle(
+                        color: AppColors.danger, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ]),
+            ),
           const SizedBox(height: 12),
           ...byCategory.entries.expand((e) => [
                 Padding(

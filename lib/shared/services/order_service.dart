@@ -160,6 +160,31 @@ class OrderService {
     await supabase.rpc('complete_session_delivery', params: {'p_session_id': sessionId});
   }
 
+  /// Supplier accepts a single-shop order and delivers it themselves (keeps
+  /// the delivery fee). Skips the agent pool entirely.
+  Future<void> acceptAndSelfDeliver(String orderId) async {
+    await supabase.rpc('accept_and_self_deliver', params: {'p_order_id': orderId});
+  }
+
+  /// Sessions a supplier is self-delivering (out for delivery).
+  Future<List<OrderSession>> getSupplierSelfDeliveries(String supplierId) async {
+    final rows = await supabase
+        .from('order_sessions')
+        .select()
+        .eq('delivery_id', supplierId)
+        .eq('delivery_mode', 'self')
+        .eq('status', 'out_for_delivery')
+        .order('placed_at', ascending: false);
+    return (rows as List).map((e) => OrderSession.fromMap(e)).toList();
+  }
+
+  /// Delivery-fee earnings the supplier made from self-delivered orders.
+  Future<double> getSupplierDeliveryEarnings(String supplierId) async {
+    final result = await supabase
+        .rpc('get_supplier_delivery_earnings', params: {'p_supplier_id': supplierId});
+    return (result as num?)?.toDouble() ?? 0;
+  }
+
   /// Agent completes delivery by entering the handoff code the customer shows.
   Future<void> completeSessionDeliveryWithOtp(String sessionId, String otp) async {
     await supabase.rpc('complete_session_delivery',
@@ -310,7 +335,7 @@ class OrderService {
   /// Contacts for a session (server-side, privacy-checked): supplier phones
   /// for any verified agent, customer phone only for the assigned agent.
   /// Returns { supplierPhones: {supplierId: phone}, customerName, customerPhone }.
-  Future<({Map<String, String> supplierPhones, String? customerName, String? customerPhone})>
+  Future<({Map<String, String> supplierPhones, String? customerName, String? customerPhone, String? customerAddress})>
       getSessionContacts(String sessionId) async {
     try {
       final res = await supabase
@@ -327,9 +352,15 @@ class OrderService {
         supplierPhones: phones,
         customerName: cust?['name'] as String?,
         customerPhone: cust?['phone'] as String?,
+        customerAddress: cust?['address'] as String?,
       );
     } catch (_) {
-      return (supplierPhones: <String, String>{}, customerName: null, customerPhone: null);
+      return (
+        supplierPhones: <String, String>{},
+        customerName: null,
+        customerPhone: null,
+        customerAddress: null
+      );
     }
   }
 

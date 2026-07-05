@@ -13,6 +13,8 @@ class Product {
   final String? unit;
   final bool isAvailable;
   final bool adminManaged;
+  // Joined from suppliers(is_open); defaults true when not joined.
+  final bool supplierIsOpen;
 
   Product({
     required this.id,
@@ -28,6 +30,7 @@ class Product {
     this.unit,
     this.isAvailable = true,
     this.adminManaged = false,
+    this.supplierIsOpen = true,
   });
 
   factory Product.fromMap(Map<String, dynamic> m) => Product(
@@ -44,6 +47,8 @@ class Product {
         unit: m['unit'] as String?,
         isAvailable: m['is_available'] as bool? ?? true,
         adminManaged: m['admin_managed'] as bool? ?? false,
+        supplierIsOpen:
+            (m['suppliers'] as Map?)?['is_open'] as bool? ?? true,
       );
 
   Map<String, dynamic> toMap() => {

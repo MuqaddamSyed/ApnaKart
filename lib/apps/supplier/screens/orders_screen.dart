@@ -4,12 +4,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/order_item.dart';
+import '../../../shared/models/order_session.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/services/supabase_client.dart';
 import '../../../shared/utils/formatters.dart';
 import 'packing_screen.dart';
+import 'self_delivery_screen.dart';
 
-/// Three tabs: New (realtime), Active, Completed (history).
+/// Four tabs: New (realtime), Active, My Deliveries (self-delivered), Completed.
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
   @override
@@ -21,12 +23,13 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
   bool _hasShopProfile = false;
   bool _loading = true;
   List<Order> _history = [];
+  List<OrderSession> _selfDeliveries = [];
   late final TabController _tab;
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this);
+    _tab = TabController(length: 4, vsync: this);
     _loadApproval();
   }
 
@@ -45,9 +48,34 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
       _approved = shop?['is_verified'] as bool? ?? false;
       if (_approved) {
         _history = await ref.read(orderServiceProvider).getSupplierHistory(uid);
+        await _loadSelfDeliveries();
       }
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadSelfDeliveries() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    final list =
+        await ref.read(orderServiceProvider).getSupplierSelfDeliveries(uid);
+    if (mounted) setState(() => _selfDeliveries = list);
+  }
+
+  Future<void> _selfDeliver(Order o) async {
+    try {
+      await ref.read(orderServiceProvider).acceptAndSelfDeliver(o.id);
+      if (!mounted) return;
+      await _loadSelfDeliveries();
+      _tab.animateTo(2); // jump to My Deliveries
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('You are delivering this order — see "My Deliveries".')));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   @override
@@ -72,9 +100,15 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
         title: const Text('Orders'),
         bottom: TabBar(
           controller: _tab,
+          isScrollable: true,
           labelColor: AppColors.primary,
           indicatorColor: AppColors.primary,
-          tabs: const [Tab(text: 'New'), Tab(text: 'Active'), Tab(text: 'Completed')],
+          tabs: const [
+            Tab(text: 'New'),
+            Tab(text: 'Active'),
+            Tab(text: 'My Deliveries'),
+            Tab(text: 'Completed'),
+          ],
         ),
       ),
       body: StreamBuilder<List<Order>>(
@@ -95,10 +129,51 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
             children: [
               _list(newOrders, _newActions),
               _list(active, _activeActions),
+              _myDeliveriesList(),
               _historyList(),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _myDeliveriesList() {
+    if (_selfDeliveries.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadSelfDeliveries,
+        child: ListView(
+          children: const [
+            SizedBox(height: 120),
+            Center(child: Text('No orders you are delivering yourself')),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadSelfDeliveries,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: _selfDeliveries
+            .map((s) => Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.directions_bike,
+                        color: AppColors.secondary),
+                    title: Text('Order #${s.shortId}'),
+                    subtitle: Text(s.deliveryAddress ?? ''),
+                    trailing: ElevatedButton(
+                      child: const Text('Deliver'),
+                      onPressed: () async {
+                        await Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) =>
+                              SelfDeliveryScreen(sessionId: s.id),
+                        ));
+                        _loadSelfDeliveries();
+                      },
+                    ),
+                  ),
+                ))
+            .toList(),
       ),
     );
   }
@@ -287,27 +362,56 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _newActions(Order o) => Row(children: [
-        Expanded(
-          child: ElevatedButton(
-            onPressed: () => ref
+  Widget _newActions(Order o) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Self-delivery only for single-shop orders (a shopkeeper can't
+        // deliver another shop's items). Green = deliver myself.
+        if (o.sessionId != null)
+          FutureBuilder<int>(
+            future: ref
                 .read(orderServiceProvider)
-                .updateOrderStatus(o.id, OrderStatus.confirmed),
-            child: const Text('Accept'),
+                .getSessionShopCount(o.sessionId!),
+            builder: (context, snap) {
+              if (snap.data != 1) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      foregroundColor: Colors.white),
+                  icon: const Icon(Icons.directions_bike, size: 18),
+                  label: const Text('Accept & deliver myself (+delivery fee)'),
+                  onPressed: () => _selfDeliver(o),
+                ),
+              );
+            },
           ),
+        // Blue = accept and let a delivery partner take it.
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white),
+          icon: const Icon(Icons.person_pin_circle, size: 18),
+          label: const Text('Accept (assign a partner)'),
+          onPressed: () => ref
+              .read(orderServiceProvider)
+              .updateOrderStatus(o.id, OrderStatus.confirmed),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: OutlinedButton(
-            style:
-                OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
-            onPressed: () => ref
-                .read(orderServiceProvider)
-                .updateOrderStatus(o.id, OrderStatus.cancelled),
-            child: const Text('Reject'),
-          ),
+        const SizedBox(height: 8),
+        // Red = reject.
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
+          icon: const Icon(Icons.cancel, size: 18),
+          label: const Text('Reject order'),
+          onPressed: () => ref
+              .read(orderServiceProvider)
+              .updateOrderStatus(o.id, OrderStatus.cancelled),
         ),
-      ]);
+      ],
+    );
+  }
 
   Widget _activeActions(Order o) {
     if (o.status == OrderStatus.confirmed) {

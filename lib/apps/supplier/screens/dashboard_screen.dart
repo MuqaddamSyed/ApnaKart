@@ -22,6 +22,7 @@ class _State extends ConsumerState<DashboardScreen> {
   bool _loading = true;
   double _todayEarnings = 0;
   double _totalEarnings = 0;
+  double _deliveryEarnings = 0; // delivery fees kept from self-delivered orders
 
   @override
   void initState() { super.initState(); _load(); }
@@ -40,6 +41,7 @@ class _State extends ConsumerState<DashboardScreen> {
         try {
           _todayEarnings = await ref.read(orderServiceProvider).getTodaySupplierEarnings(uid);
           _totalEarnings = await ref.read(orderServiceProvider).getTotalSupplierEarnings(uid);
+          _deliveryEarnings = await ref.read(orderServiceProvider).getSupplierDeliveryEarnings(uid);
         } catch (_) {/* earnings stay 0 until migrations are applied */}
       }
     }
@@ -124,6 +126,11 @@ class _State extends ConsumerState<DashboardScreen> {
                   // Lifetime earnings across all delivered orders.
                   _stat('Total Earnings', formatRupees(_totalEarnings),
                       Icons.account_balance_wallet,
+                      full: true, color: AppColors.secondary),
+                  const SizedBox(height: 12),
+                  // Delivery fees the shopkeeper kept by self-delivering.
+                  _stat('Delivery Earnings (self-delivery)',
+                      formatRupees(_deliveryEarnings), Icons.directions_bike,
                       full: true, color: AppColors.secondary),
                   const SizedBox(height: 12),
                   _stat('Pending Orders', '$pending', Icons.pending_actions, full: true,

@@ -23,7 +23,7 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showDiscount = product.discountPercent >= AppConstants.discountBadgeMin;
-    return Card(
+    final card = Card(
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Row(
@@ -93,9 +93,37 @@ class ProductCard extends StatelessWidget {
                 child: Text('${product.discountPercent}% OFF',
                     style: const TextStyle(color: Colors.white, fontSize: 10)),
               ),
-            _QtyControl(quantity: quantity, onChanged: onQuantityChanged),
+            if (product.supplierIsOpen)
+              _QtyControl(quantity: quantity, onChanged: onQuantityChanged)
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.textMuted.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('Closed',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600)),
+              ),
           ],
         ),
+      ),
+    );
+    if (product.supplierIsOpen) return card;
+    // Shop closed → show the whole card in black & white and non-orderable.
+    return Opacity(
+      opacity: 0.85,
+      child: ColorFiltered(
+        colorFilter: const ColorFilter.matrix(<double>[
+          0.2126, 0.7152, 0.0722, 0, 0,
+          0.2126, 0.7152, 0.0722, 0, 0,
+          0.2126, 0.7152, 0.0722, 0, 0,
+          0, 0, 0, 1, 0,
+        ]),
+        child: card,
       ),
     );
   }

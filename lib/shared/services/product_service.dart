@@ -8,7 +8,7 @@ class ProductService {
   Future<List<Product>> getProductsBySupplier(String supplierId) async {
     final rows = await supabase
         .from('products')
-        .select()
+        .select('*, suppliers(is_open)')
         .eq('supplier_id', supplierId)
         .order('created_at');
     return (rows as List).map((e) => Product.fromMap(e)).toList();
@@ -19,7 +19,7 @@ class ProductService {
   Future<List<Product>> searchProducts(String query) async {
     final rows = await supabase
         .from('products')
-        .select()
+        .select('*, suppliers(is_open)')
         .ilike('name', '%$query%')
         .eq('is_available', true)
         .limit(50);
@@ -30,7 +30,7 @@ class ProductService {
   Future<List<Product>> getProductsByCategory(String category) async {
     final rows = await supabase
         .from('products')
-        .select()
+        .select('*, suppliers(is_open)')
         .eq('category', category)
         .eq('is_available', true)
         .limit(100);
@@ -41,7 +41,7 @@ class ProductService {
   Future<List<Product>> topDeals({int minDiscount = 20}) async {
     final rows = await supabase
         .from('products')
-        .select()
+        .select('*, suppliers(is_open)')
         .gte('discount_percent', minDiscount)
         .eq('is_available', true)
         .limit(20);

@@ -23,7 +23,7 @@ class ProductGridCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showDiscount = product.discountPercent >= AppConstants.discountBadgeMin;
-    return Container(
+    final card = Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -54,7 +54,24 @@ class ProductGridCard extends StatelessWidget {
                         ),
                 ),
               ),
-              Positioned(right: 8, bottom: 8, child: _addControl()),
+              Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: product.supplierIsOpen
+                      ? _addControl()
+                      : Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text('Closed',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w600)),
+                        )),
             ],
           ),
           Padding(
@@ -94,6 +111,20 @@ class ProductGridCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+    if (product.supplierIsOpen) return card;
+    // Shop closed → black & white, non-orderable.
+    return Opacity(
+      opacity: 0.85,
+      child: ColorFiltered(
+        colorFilter: const ColorFilter.matrix(<double>[
+          0.2126, 0.7152, 0.0722, 0, 0,
+          0.2126, 0.7152, 0.0722, 0, 0,
+          0.2126, 0.7152, 0.0722, 0, 0,
+          0, 0, 0, 1, 0,
+        ]),
+        child: card,
       ),
     );
   }
