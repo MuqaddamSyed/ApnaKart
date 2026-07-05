@@ -62,6 +62,31 @@ class CartNotifier extends StateNotifier<CartState> {
     state = CartState(supplierItems: all);
   }
 
+  /// Change the quantity of an item already in the cart (from the cart screen,
+  /// where we hold an OrderItem rather than a Product). qty <= 0 removes it.
+  void setItemQuantity(OrderItem item, int qty) {
+    final sid = item.supplierId;
+    if (sid == null) return;
+    final all = Map<String, Map<String, OrderItem>>.from(
+        state.supplierItems.map((k, v) => MapEntry(k, Map.from(v))));
+    if (!all.containsKey(sid)) return;
+    if (qty <= 0) {
+      all[sid]!.remove(item.productId);
+      if (all[sid]!.isEmpty) all.remove(sid);
+    } else {
+      all[sid]![item.productId] = OrderItem(
+        productId: item.productId,
+        productName: item.productName,
+        quantity: qty,
+        unitPrice: item.unitPrice,
+        imageUrl: item.imageUrl,
+        unit: item.unit,
+        supplierId: sid,
+      );
+    }
+    state = CartState(supplierItems: all);
+  }
+
   void clear() => state = const CartState();
 }
 

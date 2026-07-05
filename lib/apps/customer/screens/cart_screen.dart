@@ -9,6 +9,7 @@ import '../../../shared/services/address_service.dart';
 import '../../../shared/services/supabase_client.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/cart_store.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 /// Cart: edit quantities, pick address, COD only, place order.
 class CartScreen extends ConsumerStatefulWidget {
@@ -22,11 +23,28 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   bool _placing = false;
   double? _lat;
   double? _lng;
+  // supplierId -> shop name, so the cart shows real names not id codes.
+  Map<String, String> _shopNames = {};
 
   @override
   void initState() {
     super.initState();
     _prefillAddress();
+    _loadShopNames();
+  }
+
+  Future<void> _loadShopNames() async {
+    final ids = ref.read(cartProvider).supplierItems.keys.toList();
+    if (ids.isEmpty) return;
+    final rows =
+        await supabase.from('suppliers').select('id, shop_name').inFilter('id', ids);
+    if (!mounted) return;
+    setState(() {
+      _shopNames = {
+        for (final r in (rows as List))
+          r['id'] as String: (r['shop_name'] as String?) ?? 'Shop'
+      };
+    });
   }
 
   Future<void> _prefillAddress() async {
@@ -96,6 +114,14 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     }
   }
 
+  Widget _cartBtn(IconData icon, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 16, color: Colors.white),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
@@ -118,23 +144,107 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           ...cart.bySupplier.entries.expand((entry) {
             final supplierId = entry.key;
             final items = entry.value;
+            final shopSubtotal =
+                items.fold<double>(0, (s, i) => s + i.totalPrice);
             return [
               Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
-                child: Text(
-                  'Shop · ${supplierId.length >= 8 ? supplierId.substring(0, 8) : supplierId}',
-                  style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                      fontWeight: FontWeight.w600),
-                ),
+                padding: const EdgeInsets.only(top: 12, bottom: 4),
+                child: Row(children: [
+                  const Icon(Icons.storefront, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _shopNames[supplierId] ?? 'Shop',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
+                  ),
+                  Text(formatRupees(shopSubtotal),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.textMuted)),
+                ]),
               ),
               ...items.map((i) => Card(
-                    child: ListTile(
-                      title: Text(i.productName),
-                      subtitle: Text('${i.unit ?? ''}  ${formatRupees(i.unitPrice)}'),
-                      trailing: Text('x${i.quantity}   ${formatRupees(i.totalPrice)}',
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Row(children: [
+                        // Thumbnail.
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: i.imageUrl == null
+                                ? Container(
+                                    color: AppColors.background,
+                                    child: const Icon(
+                                        Icons.shopping_bag_outlined,
+                                        color: AppColors.textMuted, size: 20))
+                                : CachedNetworkImage(
+                                    imageUrl: i.imageUrl!,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, __) =>
+                                        Container(color: AppColors.background),
+                                    errorWidget: (_, __, ___) => Container(
+                                        color: AppColors.background,
+                                        child: const Icon(
+                                            Icons.image_not_supported_outlined,
+                                            size: 18)),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Name + price.
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(i.productName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                              Text(
+                                  '${i.unit ?? ''}  ${formatRupees(i.unitPrice)}  =  ${formatRupees(i.totalPrice)}',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textMuted)),
+                            ],
+                          ),
+                        ),
+                        // Quantity control.
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            _cartBtn(Icons.remove, () => ref
+                                .read(cartProvider.notifier)
+                                .setItemQuantity(i, i.quantity - 1)),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              child: Text('${i.quantity}',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700)),
+                            ),
+                            _cartBtn(Icons.add, () => ref
+                                .read(cartProvider.notifier)
+                                .setItemQuantity(i, i.quantity + 1)),
+                          ]),
+                        ),
+                        // Remove.
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: AppColors.danger, size: 20),
+                          tooltip: 'Remove',
+                          onPressed: () => ref
+                              .read(cartProvider.notifier)
+                              .setItemQuantity(i, 0),
+                        ),
+                      ]),
                     ),
                   )),
             ];
