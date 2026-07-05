@@ -17,11 +17,15 @@ class ProductService {
   /// Search by product name. Optionally constrain to nearby suppliers first
   /// (caller passes resolved supplier ids) — kept simple here with ilike.
   Future<List<Product>> searchProducts(String query) async {
+    // !inner + the supplier filters drop products from closed/unverified
+    // (blocked) shops entirely — customers never see them.
     final rows = await supabase
         .from('products')
-        .select('*, suppliers(is_open)')
+        .select('*, suppliers!inner(is_open, is_verified)')
         .ilike('name', '%$query%')
         .eq('is_available', true)
+        .eq('suppliers.is_open', true)
+        .eq('suppliers.is_verified', true)
         .limit(50);
     return (rows as List).map((e) => Product.fromMap(e)).toList();
   }
@@ -30,9 +34,11 @@ class ProductService {
   Future<List<Product>> getProductsByCategory(String category) async {
     final rows = await supabase
         .from('products')
-        .select('*, suppliers(is_open)')
+        .select('*, suppliers!inner(is_open, is_verified)')
         .eq('category', category)
         .eq('is_available', true)
+        .eq('suppliers.is_open', true)
+        .eq('suppliers.is_verified', true)
         .limit(100);
     return (rows as List).map((e) => Product.fromMap(e)).toList();
   }
@@ -41,9 +47,11 @@ class ProductService {
   Future<List<Product>> topDeals({int minDiscount = 20}) async {
     final rows = await supabase
         .from('products')
-        .select('*, suppliers(is_open)')
+        .select('*, suppliers!inner(is_open, is_verified)')
         .gte('discount_percent', minDiscount)
         .eq('is_available', true)
+        .eq('suppliers.is_open', true)
+        .eq('suppliers.is_verified', true)
         .limit(20);
     return (rows as List).map((e) => Product.fromMap(e)).toList();
   }

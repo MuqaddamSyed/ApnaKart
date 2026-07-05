@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -22,19 +23,28 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
   bool _approved = false;
   bool _hasShopProfile = false;
   bool _loading = true;
+  List<Order> _orders = [];
   List<Order> _history = [];
   List<OrderSession> _selfDeliveries = [];
+  // Cache item lookups per order so the 8s poll doesn't refetch/flicker them.
+  final Map<String, Future<List<OrderItem>>> _itemsCache = {};
   late final TabController _tab;
+  Timer? _poll;
 
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 4, vsync: this);
     _loadApproval();
+    // Poll every 8s so status changes (e.g. after packing) always show,
+    // rather than relying solely on realtime.
+    _poll = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (_approved) _loadOrders();
+    });
   }
 
   @override
-  void dispose() { _tab.dispose(); super.dispose(); }
+  void dispose() { _poll?.cancel(); _tab.dispose(); super.dispose(); }
 
   Future<void> _loadApproval() async {
     final uid = supabase.auth.currentUser?.id;
@@ -47,11 +57,31 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
       _hasShopProfile = shop != null;
       _approved = shop?['is_verified'] as bool? ?? false;
       if (_approved) {
+        await _loadOrders();
         _history = await ref.read(orderServiceProvider).getSupplierHistory(uid);
         await _loadSelfDeliveries();
       }
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadOrders() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final list = await ref.read(orderServiceProvider).getOrdersBySupplier(uid);
+      if (mounted) setState(() => _orders = list);
+    } catch (_) {/* keep last known list */}
+  }
+
+  Future<void> _refreshAll() async {
+    await _loadOrders();
+    await _loadSelfDeliveries();
+    final uid = supabase.auth.currentUser?.id;
+    if (uid != null) {
+      _history = await ref.read(orderServiceProvider).getSupplierHistory(uid);
+      if (mounted) setState(() {});
+    }
   }
 
   Future<void> _loadSelfDeliveries() async {
@@ -111,30 +141,26 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
           ],
         ),
       ),
-      body: StreamBuilder<List<Order>>(
-        stream: ref.read(orderServiceProvider).listenToSupplierOrders(uid),
-        builder: (context, snap) {
-          final orders = snap.data ?? [];
-          final newOrders = orders.where((o) => o.status == OrderStatus.placed).toList();
-          final active = orders.where((o) => [
-            OrderStatus.confirmed,
-            OrderStatus.preparing,
-            OrderStatus.picked_up,
-            OrderStatus.on_the_way,
-            OrderStatus.arrived,
-          ].contains(o.status)).toList();
-
-          return TabBarView(
-            controller: _tab,
-            children: [
-              _list(newOrders, _newActions),
-              _list(active, _activeActions),
-              _myDeliveriesList(),
-              _historyList(),
-            ],
-          );
-        },
-      ),
+      body: Builder(builder: (context) {
+        final newOrders =
+            _orders.where((o) => o.status == OrderStatus.placed).toList();
+        final active = _orders.where((o) => [
+              OrderStatus.confirmed,
+              OrderStatus.preparing,
+              OrderStatus.picked_up,
+              OrderStatus.on_the_way,
+              OrderStatus.arrived,
+            ].contains(o.status)).toList();
+        return TabBarView(
+          controller: _tab,
+          children: [
+            _list(newOrders, _newActions),
+            _list(active, _activeActions),
+            _myDeliveriesList(),
+            _historyList(),
+          ],
+        );
+      }),
     );
   }
 
@@ -179,9 +205,17 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
   }
 
   Widget _list(List<Order> orders, Widget Function(Order) actions) {
-    if (orders.isEmpty) return const Center(child: Text('No orders'));
+    if (orders.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _refreshAll,
+        child: ListView(children: const [
+          SizedBox(height: 160),
+          Center(child: Text('No orders')),
+        ]),
+      );
+    }
     return RefreshIndicator(
-      onRefresh: _loadApproval,
+      onRefresh: _refreshAll,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: orders.map((o) => _orderCard(o, actions(o))).toList(),
@@ -198,13 +232,13 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
             const Icon(Icons.history, color: AppColors.textMuted, size: 48),
             const SizedBox(height: 12),
             const Text('No completed orders yet'),
-            TextButton(onPressed: _loadApproval, child: const Text('Refresh')),
+            TextButton(onPressed: _refreshAll, child: const Text('Refresh')),
           ],
         ),
       );
     }
     return RefreshIndicator(
-      onRefresh: _loadApproval,
+      onRefresh: _refreshAll,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: _history.map((o) => _orderCard(o, _completedBadge())).toList(),
@@ -238,6 +272,8 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
             const SizedBox(height: 8),
             // Ordered products so the supplier knows what to pack/confirm.
             _itemsList(o.id),
+            // Customer name / address / phone (to judge distance for self-delivery).
+            _customerContact(o),
             // Delivery partner's contact once the order has been claimed.
             _agentContact(o),
             const SizedBox(height: 8),
@@ -251,8 +287,10 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
   /// Fetches and lists the products in an order (name × qty · line total),
   /// so the supplier can see exactly what was ordered before accepting.
   Widget _itemsList(String orderId) {
+    final future = _itemsCache.putIfAbsent(
+        orderId, () => ref.read(orderServiceProvider).getOrderItems(orderId));
     return FutureBuilder<List<OrderItem>>(
-      future: ref.read(orderServiceProvider).getOrderItems(orderId),
+      future: future,
       builder: (context, snap) {
         if (!snap.hasData) {
           return const Padding(
@@ -311,6 +349,58 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
     if (phone == null || phone.isEmpty) return;
     final uri = Uri.parse('tel:$phone');
     if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  /// Customer name, delivery address and phone — so the shopkeeper can gauge
+  /// the distance (and reach the customer) before choosing to self-deliver.
+  Widget _customerContact(Order o) {
+    return FutureBuilder<({String? name, String? phone, String? address})>(
+      future: ref.read(orderServiceProvider).getOrderCustomerContact(o.id),
+      builder: (context, snap) {
+        final c = snap.data;
+        final address = c?.address ?? o.deliveryAddress;
+        if (c == null && address == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(children: [
+              const Icon(Icons.person_pin_circle,
+                  color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(c?.name ?? 'Customer',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                    if (address != null)
+                      Text(address,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textMuted)),
+                    if (c?.phone != null)
+                      Text(c!.phone!,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.secondary)),
+                  ],
+                ),
+              ),
+              if (c?.phone != null)
+                IconButton(
+                  icon: const Icon(Icons.call, color: AppColors.secondary),
+                  tooltip: 'Call customer',
+                  onPressed: () => _call(c!.phone),
+                ),
+            ]),
+          ),
+        );
+      },
+    );
   }
 
   /// Shows the assigned delivery partner's name + phone (with a call button)
@@ -395,9 +485,12 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
               foregroundColor: Colors.white),
           icon: const Icon(Icons.person_pin_circle, size: 18),
           label: const Text('Accept (assign a partner)'),
-          onPressed: () => ref
-              .read(orderServiceProvider)
-              .updateOrderStatus(o.id, OrderStatus.confirmed),
+          onPressed: () async {
+            await ref
+                .read(orderServiceProvider)
+                .updateOrderStatus(o.id, OrderStatus.confirmed);
+            _loadOrders();
+          },
         ),
         const SizedBox(height: 8),
         // Red = reject.
@@ -405,9 +498,12 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
           style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
           icon: const Icon(Icons.cancel, size: 18),
           label: const Text('Reject order'),
-          onPressed: () => ref
-              .read(orderServiceProvider)
-              .updateOrderStatus(o.id, OrderStatus.cancelled),
+          onPressed: () async {
+            await ref
+                .read(orderServiceProvider)
+                .updateOrderStatus(o.id, OrderStatus.cancelled);
+            _loadOrders();
+          },
         ),
       ],
     );
@@ -427,11 +523,12 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
         ElevatedButton.icon(
           icon: const Icon(Icons.inventory_2, size: 16),
           label: const Text('Open Packing Screen'),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => PackingScreen(orderId: o.id),
-            ),
-          ),
+          onPressed: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => PackingScreen(orderId: o.id)),
+            );
+            _loadOrders(); // reflect the new 'preparing' status
+          },
         ),
       ]);
     }

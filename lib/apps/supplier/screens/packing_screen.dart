@@ -221,8 +221,12 @@ class _State extends ConsumerState<PackingScreen> {
                     },
                   ),
                 ),
-                // Summary + Done button.
-                Container(
+                // Summary + Done button. SafeArea keeps it above the system
+                // navigation bar (was overlapping it before).
+                SafeArea(
+                  top: false,
+                  minimum: const EdgeInsets.only(bottom: 28),
+                  child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -245,6 +249,7 @@ class _State extends ConsumerState<PackingScreen> {
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
+                        height: 52,
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.done_all),
                           label: _saving
@@ -259,6 +264,7 @@ class _State extends ConsumerState<PackingScreen> {
                       ),
                     ],
                   ),
+                ),
                 ),
               ],
             ),

@@ -337,6 +337,26 @@ class OrderService {
             .toList());
   }
 
+  /// The customer's contact for an order (name, phone, delivery address),
+  /// readable by the order's supplier — so they can judge distance before
+  /// choosing to self-deliver.
+  Future<({String? name, String? phone, String? address})>
+      getOrderCustomerContact(String orderId) async {
+    try {
+      final res = await supabase
+          .rpc('get_order_customer_contact', params: {'p_order_id': orderId});
+      if (res == null) return (name: null, phone: null, address: null);
+      final m = (res as Map).cast<String, dynamic>();
+      return (
+        name: m['name'] as String?,
+        phone: m['phone'] as String?,
+        address: m['address'] as String?,
+      );
+    } catch (_) {
+      return (name: null, phone: null, address: null);
+    }
+  }
+
   /// The assigned delivery agent's contact for an order the caller supplies,
   /// so the supplier can call the partner for pickup. Null if unassigned.
   Future<({String? name, String? phone})> getOrderAgentContact(String orderId) async {

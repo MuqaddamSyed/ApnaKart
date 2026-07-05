@@ -98,19 +98,22 @@ class _State extends ConsumerState<SupplierDetailScreen> {
               ]),
             ),
           const SizedBox(height: 12),
-          ...byCategory.entries.expand((e) => [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(e.key.replaceAll('_', ' ').toUpperCase(),
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-                ),
-                ...e.value.map((p) => ProductCard(
-                      product: p,
-                      quantity: cart.qtyOf(p.id),
-                      onQuantityChanged: (q) =>
-                          ref.read(cartProvider.notifier).setQuantity(p, q),
-                    )),
-              ]),
+          // When the shop is closed, don't show any products at all.
+          if (isOpen)
+            ...byCategory.entries.expand((e) => [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(e.key.replaceAll('_', ' ').toUpperCase(),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 12)),
+                  ),
+                  ...e.value.map((p) => ProductCard(
+                        product: p,
+                        quantity: cart.qtyOf(p.id),
+                        onQuantityChanged: (q) =>
+                            ref.read(cartProvider.notifier).setQuantity(p, q),
+                      )),
+                ]),
         ],
       ),
       bottomNavigationBar: cart.count == 0

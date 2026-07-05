@@ -1,7 +1,7 @@
 name: quickkart
 description: Hyperlocal quick-commerce platform for Tier 2/3 towns in India (4 apps, one codebase).
 publish_to: 'none'
-version: 0.4.9+13
+version: 0.5.0+14
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
