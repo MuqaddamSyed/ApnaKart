@@ -23,6 +23,8 @@ class OrderTrackingScreen extends ConsumerStatefulWidget {
 class _State extends ConsumerState<OrderTrackingScreen> {
   Map<String, dynamic>? _agent;
   List<Order> _subOrders = [];
+  // supplierId -> phone, for self-delivered orders (the shop is the deliverer).
+  Map<String, String> _shopPhones = {};
   // Live status per sub-order id, driven by the realtime stream (which lacks
   // the supplier-name joins that _subOrders carries for display).
   Map<String, OrderStatus> _liveStatus = {};
@@ -67,6 +69,12 @@ class _State extends ConsumerState<OrderTrackingScreen> {
         _subOrders = orders;
         _liveStatus = {for (final o in orders) o.id: o.status};
       });
+    }
+    // For a self-delivered order, fetch the delivering shop's phone.
+    final contacts =
+        await ref.read(orderServiceProvider).getSessionContacts(widget.sessionId);
+    if (mounted && contacts.supplierPhones.isNotEmpty) {
+      setState(() => _shopPhones = contacts.supplierPhones);
     }
   }
 
@@ -259,8 +267,33 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                 }),
                 const SizedBox(height: 8),
               ],
+              // Self-delivery: the shop delivers the order itself.
+              if (session.deliveryMode == 'self' && _subOrders.isNotEmpty)
+                Builder(builder: (context) {
+                  final shop = _subOrders.first;
+                  final phone = _shopPhones[shop.supplierId];
+                  return Card(
+                    color: AppColors.primary.withOpacity(0.06),
+                    child: ListTile(
+                      leading: const Icon(Icons.storefront,
+                          color: AppColors.primary),
+                      title: Text(
+                          'Delivered by ${shop.supplierName ?? 'the shop'}'),
+                      subtitle: Text(
+                          phone != null ? phone : 'The shop is delivering your order'),
+                      trailing: phone != null
+                          ? IconButton(
+                              icon: const Icon(Icons.call,
+                                  color: AppColors.secondary),
+                              tooltip: 'Call shop',
+                              onPressed: () => _call(phone),
+                            )
+                          : null,
+                    ),
+                  );
+                })
               // Delivery agent info.
-              if (_agent != null)
+              else if (_agent != null)
                 Card(
                   child: ListTile(
                     leading:

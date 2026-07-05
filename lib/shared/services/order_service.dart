@@ -22,6 +22,21 @@ class OrderService {
     required Map<String, List<OrderItem>> supplierItems,
     String? notes,
   }) async {
+    // Reject checkout if any shop in the cart has since closed (the DB has a
+    // trigger as the airtight backstop; this gives a friendly message first).
+    final closedShops = await supabase
+        .from('suppliers')
+        .select('shop_name, is_open')
+        .inFilter('id', supplierItems.keys.toList());
+    final closedNames = (closedShops as List)
+        .where((s) => s['is_open'] == false)
+        .map((s) => (s['shop_name'] as String?) ?? 'A shop')
+        .toList();
+    if (closedNames.isNotEmpty) {
+      throw Exception(
+          '${closedNames.join(', ')} is closed right now. Remove those items and try again.');
+    }
+
     final supplierSubtotals = supplierItems.map(
         (sid, items) => MapEntry(sid, items.fold<double>(0, (s, i) => s + i.totalPrice)));
     final grandSubtotal = supplierSubtotals.values.fold<double>(0, (s, v) => s + v);
