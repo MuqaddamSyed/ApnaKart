@@ -348,37 +348,39 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(children: [
-                              const Icon(Icons.home, color: AppColors.secondary),
+                              const Icon(Icons.home,
+                                  color: AppColors.secondary, size: 26),
                               const SizedBox(width: 8),
                               const Text('Deliver to customer',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.w600)),
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16)),
                               const Spacer(),
                               // Customer phone unlocks once everything is
                               // picked up (so the agent can call on the way).
                               if (_allPickedUp && _customerPhone != null)
                                 IconButton(
                                   icon: const Icon(Icons.call,
-                                      color: AppColors.secondary, size: 20),
+                                      color: AppColors.secondary, size: 28),
                                   tooltip: 'Call customer',
                                   onPressed: () => _call(_customerPhone),
                                 ),
                             ]),
                             Padding(
-                              padding: const EdgeInsets.only(left: 32),
+                              padding: const EdgeInsets.only(left: 34, top: 2),
                               child: Text(session.deliveryAddress ?? '',
                                   style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textMuted)),
+                                      fontSize: 15,
+                                      color: AppColors.textDark)),
                             ),
                             if (_allPickedUp && _customerPhone != null)
                               Padding(
-                                padding: const EdgeInsets.only(left: 32, top: 2),
+                                padding: const EdgeInsets.only(left: 34, top: 3),
                                 child: Text('📞 $_customerPhone',
                                     style: const TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 16,
                                         color: AppColors.secondary,
-                                        fontWeight: FontWeight.w600)),
+                                        fontWeight: FontWeight.w700)),
                               ),
                             const SizedBox(height: 8),
                             OutlinedButton.icon(

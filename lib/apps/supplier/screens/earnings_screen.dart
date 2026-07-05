@@ -78,7 +78,7 @@ class _State extends ConsumerState<EarningsScreen> {
                 Expanded(
                   child: ListView(
                     children: f.map((o) => ListTile(
-                          title: Text('#${o.id.substring(0, 8)}'),
+                          title: Text('#${o.orderNo}'),
                           subtitle: Text(formatDate(o.placedAt)),
                           trailing: Text(formatRupees(o.total),
                               style: const TextStyle(fontWeight: FontWeight.w600)),

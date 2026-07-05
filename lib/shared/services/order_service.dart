@@ -443,7 +443,7 @@ class OrderService {
   Future<List<Order>> getOrdersByCustomer(String customerId) async {
     final rows = await supabase
         .from('orders')
-        .select()
+        .select('*, order_sessions(display_id)')
         .eq('customer_id', customerId)
         .order('placed_at', ascending: false);
     return (rows as List).map((e) => Order.fromMap(e)).toList();
@@ -452,7 +452,7 @@ class OrderService {
   Future<List<Order>> getOrdersBySupplier(String supplierId) async {
     final rows = await supabase
         .from('orders')
-        .select()
+        .select('*, order_sessions(display_id)')
         .eq('supplier_id', supplierId)
         .order('placed_at', ascending: false);
     return (rows as List).map((e) => Order.fromMap(e)).toList();
@@ -461,7 +461,7 @@ class OrderService {
   Future<List<Order>> getSupplierHistory(String supplierId) async {
     final rows = await supabase
         .from('orders')
-        .select()
+        .select('*, order_sessions(display_id)')
         .eq('supplier_id', supplierId)
         .eq('status', 'delivered')
         .order('placed_at', ascending: false);
@@ -484,7 +484,7 @@ class OrderService {
   Future<List<Order>> getSessionOrders(String sessionId) async {
     final rows = await supabase
         .from('orders')
-        .select('*, suppliers(shop_name, address, lat, lng, users(phone)), customers(users(phone))')
+        .select('*, order_sessions(display_id), suppliers(shop_name, address, lat, lng, users(phone)), customers(users(phone))')
         .eq('session_id', sessionId);
     return (rows as List).map((e) => Order.fromMap(e)).toList();
   }

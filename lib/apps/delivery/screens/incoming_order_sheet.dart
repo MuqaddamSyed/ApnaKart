@@ -103,15 +103,20 @@ class _State extends ConsumerState<IncomingOrderSheet> {
   @override
   Widget build(BuildContext context) {
     final s = widget.session;
-    return Padding(
-      padding: const EdgeInsets.all(20),
+    return SafeArea(
+      top: false,
+      // Extra bottom margin lifts the sheet (and the Accept/Decline buttons)
+      // higher off the screen edge so they're easy to reach.
+      minimum: const EdgeInsets.only(bottom: 28),
+      child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             const Text('New Delivery Request',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             CircleAvatar(
               backgroundColor: AppColors.primary,
               radius: 16,
@@ -145,18 +150,23 @@ class _State extends ConsumerState<IncomingOrderSheet> {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   dense: true,
-                  leading: const Icon(Icons.store, color: AppColors.primary),
+                  leading: const Icon(Icons.store,
+                      color: AppColors.primary, size: 28),
                   title: Text(o.supplierName ?? 'Supplier',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 16)),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(o.supplierAddress ?? 'Address not set',
-                          style: const TextStyle(fontSize: 12)),
+                          style: const TextStyle(
+                              fontSize: 14, color: AppColors.textDark)),
                       if (phone != null)
                         Text(phone,
                             style: const TextStyle(
-                                fontSize: 12, color: AppColors.secondary)),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.secondary)),
                     ],
                   ),
                   trailing: phone != null
@@ -174,40 +184,54 @@ class _State extends ConsumerState<IncomingOrderSheet> {
           const SizedBox(height: 4),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading:
-                const Icon(Icons.location_on, color: AppColors.secondary),
-            title: const Text('Drop to customer'),
-            subtitle: Text(s.deliveryAddress ?? '-'),
+            leading: const Icon(Icons.location_on,
+                color: AppColors.secondary, size: 28),
+            title: const Text('Drop to customer',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            subtitle: Text(s.deliveryAddress ?? '-',
+                style: const TextStyle(
+                    fontSize: 15, color: AppColors.textDark)),
           ),
           Text(
             'Estimated earnings: ${formatRupees(s.deliveryFee == 0 ? 20 : s.deliveryFee)}',
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
           ),
           const SizedBox(height: 16),
           Row(children: [
             Expanded(
-              child: ElevatedButton(
-                onPressed: _accepting ? null : _accept,
-                child: _accepting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : const Text('Accept'),
+              child: SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _accepting ? null : _accept,
+                  child: _accepting
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Text('Accept',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700)),
+                ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.danger),
-                onPressed: _accepting ? null : _decline,
-                child: const Text('Decline'),
+              child: SizedBox(
+                height: 52,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger),
+                  onPressed: _accepting ? null : _decline,
+                  child: const Text('Decline',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700)),
+                ),
               ),
             ),
           ]),
         ],
+      ),
       ),
     );
   }

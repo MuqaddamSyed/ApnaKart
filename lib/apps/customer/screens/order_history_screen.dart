@@ -38,8 +38,6 @@ class _State extends ConsumerState<OrderHistoryScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
-  static String _shortId(String id) =>
-      id.length >= 8 ? id.substring(0, 8) : id;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +51,7 @@ class _State extends ConsumerState<OrderHistoryScreen> {
                   padding: const EdgeInsets.all(16),
                   children: _orders.map((o) => Card(
                         child: ListTile(
-                          title: Text('Order #${_shortId(o.sessionId ?? o.id)}'),
+                          title: Text('Order #${o.orderNo}'),
                           subtitle: Text('${formatDate(o.placedAt)}\n${formatRupees(o.total)}'),
                           isThreeLine: true,
                           trailing: StatusBadge(status: o.status),

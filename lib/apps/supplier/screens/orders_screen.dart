@@ -26,8 +26,12 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
   List<Order> _orders = [];
   List<Order> _history = [];
   List<OrderSession> _selfDeliveries = [];
-  // Cache item lookups per order so the 8s poll doesn't refetch/flicker them.
+  // Cache item + customer lookups per order (both static) so the 8s poll
+  // doesn't refetch/flicker them. Agent contact is left uncached so it appears
+  // as soon as an agent claims the order.
   final Map<String, Future<List<OrderItem>>> _itemsCache = {};
+  final Map<String, Future<({String? name, String? phone, String? address})>>
+      _customerCache = {};
   late final TabController _tab;
   Timer? _poll;
 
@@ -254,7 +258,7 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('#${o.id.substring(0, 8)}',
+              Text('#${o.orderNo}',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
               Text(formatRupees(o.total),
                   style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -354,8 +358,10 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
   /// Customer name, delivery address and phone — so the shopkeeper can gauge
   /// the distance (and reach the customer) before choosing to self-deliver.
   Widget _customerContact(Order o) {
+    final future = _customerCache.putIfAbsent(
+        o.id, () => ref.read(orderServiceProvider).getOrderCustomerContact(o.id));
     return FutureBuilder<({String? name, String? phone, String? address})>(
-      future: ref.read(orderServiceProvider).getOrderCustomerContact(o.id),
+      future: future,
       builder: (context, snap) {
         final c = snap.data;
         final address = c?.address ?? o.deliveryAddress;
@@ -363,36 +369,45 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
         return Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.06),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(children: [
               const Icon(Icons.person_pin_circle,
-                  color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
+                  color: AppColors.primary, size: 26),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(c?.name ?? 'Customer',
                         style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13)),
+                            fontWeight: FontWeight.w700, fontSize: 17)),
                     if (address != null)
-                      Text(address,
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.textMuted)),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(address,
+                            style: const TextStyle(
+                                fontSize: 15, color: AppColors.textDark)),
+                      ),
                     if (c?.phone != null)
-                      Text(c!.phone!,
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.secondary)),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(c!.phone!,
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.secondary)),
+                      ),
                   ],
                 ),
               ),
               if (c?.phone != null)
                 IconButton(
-                  icon: const Icon(Icons.call, color: AppColors.secondary),
+                  icon: const Icon(Icons.call,
+                      color: AppColors.secondary, size: 28),
                   tooltip: 'Call customer',
                   onPressed: () => _call(c!.phone),
                 ),

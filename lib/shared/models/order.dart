@@ -26,6 +26,7 @@ enum OrderStatus {
 class Order {
   final String id;
   final String? sessionId;
+  final String? displayId; // friendly order no. (DDMM+seq) from the session
   final String customerId;
   final String supplierId;
   final String? deliveryId;
@@ -54,6 +55,7 @@ class Order {
   Order({
     required this.id,
     this.sessionId,
+    this.displayId,
     required this.customerId,
     required this.supplierId,
     this.deliveryId,
@@ -83,9 +85,11 @@ class Order {
     final supUser = sup?['users'] as Map<String, dynamic>?;
     final cust = m['customers'] as Map<String, dynamic>?;
     final custUser = cust?['users'] as Map<String, dynamic>?;
+    final session = m['order_sessions'] as Map<String, dynamic>?;
     return Order(
       id: m['id'] as String,
       sessionId: m['session_id'] as String?,
+      displayId: session?['display_id'] as String?,
       customerId: m['customer_id'] as String,
       supplierId: m['supplier_id'] as String,
       deliveryId: m['delivery_id'] as String?,
@@ -112,4 +116,9 @@ class Order {
       customerPhone: custUser?['phone'] as String?,
     );
   }
+
+  /// Friendly order number for display — the session's DDMM+seq id when
+  /// available, else a short slice of the uuid.
+  String get orderNo =>
+      displayId ?? (id.length >= 8 ? id.substring(0, 8) : id);
 }
