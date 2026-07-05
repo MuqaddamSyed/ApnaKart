@@ -170,6 +170,12 @@ class OrderService {
     await supabase.rpc('reject_session_by_customer', params: {'p_session_id': sessionId});
   }
 
+  /// Assigned agent rejects/returns the delivery (agent-authorised, unlike
+  /// rejectSessionByCustomer which is customer-only).
+  Future<void> rejectSessionByAgent(String sessionId) async {
+    await supabase.rpc('reject_session_by_agent', params: {'p_session_id': sessionId});
+  }
+
   /// Mark agent arrived: flips sub-orders to 'arrived' and generates the
   /// handoff code (server-side, agent-only).
   Future<void> markSessionArrived(String sessionId) async {

@@ -184,7 +184,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
     try {
       await ref
           .read(orderServiceProvider)
-          .rejectSessionByCustomer(widget.sessionId);
+          .rejectSessionByAgent(widget.sessionId);
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) setState(() => _error = 'Could not update: $e');

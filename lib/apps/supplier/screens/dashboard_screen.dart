@@ -59,11 +59,19 @@ class _State extends ConsumerState<DashboardScreen> {
     final now = DateTime.now();
     bool sameDay(DateTime d) =>
         d.year == now.year && d.month == now.month && d.day == now.day;
+    // placed_at is stored in UTC; convert to local before comparing the day,
+    // otherwise IST evening/night orders fall on the wrong (UTC) day and
+    // "Today's Orders" reads 0.
     final todaysOrders = _orders.where((o) =>
-        sameDay(o.placedAt) &&
+        sameDay(o.placedAt.toLocal()) &&
         o.status != OrderStatus.cancelled &&
         o.status != OrderStatus.returned).toList();
     final pending = _orders.where((o) => o.status == OrderStatus.placed).length;
+    final totalOrders = _orders
+        .where((o) =>
+            o.status != OrderStatus.cancelled &&
+            o.status != OrderStatus.returned)
+        .length;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Dashboard')),
@@ -107,8 +115,11 @@ class _State extends ConsumerState<DashboardScreen> {
                   Row(children: [
                     _stat("Today's Orders", '${todaysOrders.length}', Icons.shopping_bag),
                     const SizedBox(width: 12),
-                    _stat("Today's Earnings", formatRupees(_todayEarnings), Icons.payments),
+                    _stat('Total Orders', '$totalOrders', Icons.receipt_long),
                   ]),
+                  const SizedBox(height: 12),
+                  _stat("Today's Earnings", formatRupees(_todayEarnings),
+                      Icons.payments, full: true),
                   const SizedBox(height: 12),
                   // Lifetime earnings across all delivered orders.
                   _stat('Total Earnings', formatRupees(_totalEarnings),
