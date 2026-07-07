@@ -25,36 +25,44 @@ class _State extends State<AnalyticsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
+    try {
+      // Full select so OrderSession.fromMap has every field it needs.
+      final all = await supabase.from('order_sessions').select();
+      final list = (all as List);
+      _totalSessions = list.length;
+      _cancelled = list.where((s) => s['status'] == 'cancelled').length;
+      _delivered = list
+          .where((s) => s['status'] == 'delivered')
+          .map((e) => OrderSession.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
 
-    final all = await supabase.from('order_sessions').select('status, total, placed_at');
-    _totalSessions = (all as List).length;
-    _cancelled = all.where((s) => s['status'] == 'cancelled').length;
-    _delivered = all
-        .where((s) => s['status'] == 'delivered')
-        .map((e) => OrderSession.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
-
-    final orderRows = await supabase
-        .from('orders')
-        .select('supplier_id, subtotal, suppliers(shop_name)')
-        .eq('status', 'delivered');
-    final map = <String, _SupplierRevenue>{};
-    for (final row in (orderRows as List)) {
-      final sid = row['supplier_id'] as String;
-      final subtotal = (row['subtotal'] as num?)?.toDouble() ?? 0;
-      final shopName = (row['suppliers'] as Map?)?['shop_name'] as String? ??
-          'Shop ${sid.substring(0, 4)}';
-      map[sid] = _SupplierRevenue(
-        shopName: shopName,
-        revenue: (map[sid]?.revenue ?? 0) + subtotal,
-      );
+      final orderRows = await supabase
+          .from('orders')
+          .select('supplier_id, subtotal, suppliers(shop_name)')
+          .eq('status', 'delivered');
+      final map = <String, _SupplierRevenue>{};
+      for (final row in (orderRows as List)) {
+        final sid = row['supplier_id'] as String;
+        final subtotal = (row['subtotal'] as num?)?.toDouble() ?? 0;
+        final shopName = (row['suppliers'] as Map?)?['shop_name'] as String? ??
+            'Shop ${sid.substring(0, 4)}';
+        map[sid] = _SupplierRevenue(
+          shopName: shopName,
+          revenue: (map[sid]?.revenue ?? 0) + subtotal,
+        );
+      }
+      final sorted = map.entries.toList()
+        ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
+      _bySupplier = Map.fromEntries(sorted);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not load analytics: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    final sorted = map.entries.toList()
-      ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
-    _bySupplier = Map.fromEntries(sorted);
-
-    if (mounted) setState(() => _loading = false);
   }
 
   List<double> _peakHours() {

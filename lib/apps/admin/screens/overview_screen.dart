@@ -27,6 +27,19 @@ class _State extends State<OverviewScreen> {
   }
 
   Future<void> _load() async {
+    try {
+      await _loadInner();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not load: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadInner() async {
     final sessions = await supabase
         .from('order_sessions')
         .select()
