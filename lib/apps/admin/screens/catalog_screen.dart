@@ -98,7 +98,19 @@ class _State extends State<AdminCatalogScreen> {
       ),
     );
     if (ok == true) {
-      await supabase.from('products').delete().eq('id', p.id);
+      try {
+        await supabase.from('products').delete().eq('id', p.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Deleted "${p.name}"')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Could not delete: $e'),
+              backgroundColor: AppColors.danger));
+        }
+      }
       _load();
     }
   }

@@ -71,12 +71,6 @@ class _State extends ConsumerState<AdminShell> {
     ]),
   ];
 
-  void _go(int pageIndex) {
-    setState(() => _i = pageIndex);
-    final s = Scaffold.maybeOf(context);
-    if (s != null && s.isDrawerOpen) Navigator.pop(context);
-  }
-
   Future<void> _logout() async {
     await ref.read(authServiceProvider).signOut();
     if (mounted) {
@@ -286,14 +280,20 @@ class _State extends ConsumerState<AdminShell> {
 
   Widget _navTile((IconData, String, int) item) {
     final active = _i == item.$3;
-    return Padding(
+    return Builder(builder: (ctx) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Material(
         color: active ? AdminTheme.sidebarPanel : Colors.transparent,
         borderRadius: BorderRadius.circular(11),
         child: InkWell(
           borderRadius: BorderRadius.circular(11),
-          onTap: () => _go(item.$3),
+          onTap: () {
+            setState(() => _i = item.$3);
+            final s = Scaffold.maybeOf(ctx);
+            if (s != null && s.hasDrawer && s.isDrawerOpen) {
+              Navigator.pop(ctx);
+            }
+          },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(children: [
@@ -312,7 +312,7 @@ class _State extends ConsumerState<AdminShell> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _rawTile({

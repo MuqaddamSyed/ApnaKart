@@ -1,6 +1,10 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/supabase_config.dart';
 import '../../../shared/services/supabase_client.dart';
 import '../../../shared/utils/formatters.dart';
 import 'admin_ui.dart';
@@ -145,6 +149,41 @@ class _DialogState extends State<_SkuDialog> {
   final _description = TextEditingController();
   String? _category;
   bool _saving = false;
+  bool _uploading = false;
+  Uint8List? _previewBytes;
+
+  Future<void> _pickImage() async {
+    final x = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 75);
+    if (x == null) return;
+    final bytes = await x.readAsBytes();
+    setState(() {
+      _previewBytes = bytes;
+      _uploading = true;
+    });
+    try {
+      final ext = x.name.contains('.') ? x.name.split('.').last : 'jpg';
+      final path =
+          'skus/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await supabase.storage.from(SupabaseConfig.productImageBucket).uploadBinary(
+            path,
+            bytes,
+            fileOptions: const FileOptions(upsert: true),
+          );
+      final url = supabase.storage
+          .from(SupabaseConfig.productImageBucket)
+          .getPublicUrl(path);
+      _imageUrl.text = url;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+        setState(() => _previewBytes = null);
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -213,12 +252,47 @@ class _DialogState extends State<_SkuDialog> {
                 ],
                 onChanged: (v) => setState(() => _category = v),
               ),
+              const SizedBox(height: 12),
+              Row(children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AdminTheme.border),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _previewBytes != null
+                      ? Image.memory(_previewBytes!, fit: BoxFit.cover)
+                      : (_imageUrl.text.isNotEmpty
+                          ? Image.network(_imageUrl.text,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.image_not_supported,
+                                  color: AppColors.textMuted))
+                          : const Icon(Icons.image_outlined,
+                              color: AppColors.textMuted)),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _uploading ? null : _pickImage,
+                  icon: _uploading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.upload_rounded, size: 18),
+                  label: Text(_uploading ? 'Uploading…' : 'Upload image'),
+                ),
+              ]),
               const SizedBox(height: 10),
               TextField(
                 controller: _imageUrl,
+                onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
                     labelText: 'Image URL (optional)',
-                    hintText: 'https://…'),
+                    hintText: 'https://…  or upload above'),
               ),
               const SizedBox(height: 10),
               TextField(

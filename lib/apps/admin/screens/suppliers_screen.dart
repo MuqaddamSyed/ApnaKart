@@ -26,9 +26,12 @@ class _State extends State<AdminSuppliersScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     // Join with users to get phone; count products per supplier.
+    // Stable order by shop_name so a verify/open toggle doesn't reshuffle
+    // the list (Postgres reorders unordered rows after an update).
     final supplierRows = await supabase
         .from('suppliers')
-        .select('*, users(phone)');
+        .select('*, users(phone)')
+        .order('shop_name');
     final productCounts = await supabase
         .from('products')
         .select('supplier_id');

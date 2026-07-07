@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../shared/models/order_session.dart';
 import '../../../shared/services/supabase_client.dart';
 import '../../../shared/utils/formatters.dart';
 import 'admin_ui.dart';
 
-/// Revenue by supplier (shop name), peak-hours bar chart, session totals.
+/// Revenue KPIs, peak-hours chart and revenue-by-supplier breakdown.
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
   @override
@@ -14,9 +13,9 @@ class AnalyticsScreen extends StatefulWidget {
 }
 
 class _State extends State<AnalyticsScreen> {
-  List<OrderSession> _sessions = [];
-  // supplierId -> {shopName, revenue}
+  List<OrderSession> _delivered = [];
   Map<String, _SupplierRevenue> _bySupplier = {};
+  int _totalSessions = 0, _cancelled = 0;
   bool _loading = true;
 
   @override
@@ -28,16 +27,14 @@ class _State extends State<AnalyticsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
 
-    // Load sessions for peak-hours + total revenue.
-    final sessionRows = await supabase
-        .from('order_sessions')
-        .select()
-        .eq('status', 'delivered');
-    _sessions = (sessionRows as List)
-        .map((e) => OrderSession.fromMap(e))
+    final all = await supabase.from('order_sessions').select('status, total, placed_at');
+    _totalSessions = (all as List).length;
+    _cancelled = all.where((s) => s['status'] == 'cancelled').length;
+    _delivered = all
+        .where((s) => s['status'] == 'delivered')
+        .map((e) => OrderSession.fromMap(Map<String, dynamic>.from(e)))
         .toList();
 
-    // Load sub-orders joined with supplier shop names.
     final orderRows = await supabase
         .from('orders')
         .select('supplier_id, subtotal, suppliers(shop_name)')
@@ -46,14 +43,13 @@ class _State extends State<AnalyticsScreen> {
     for (final row in (orderRows as List)) {
       final sid = row['supplier_id'] as String;
       final subtotal = (row['subtotal'] as num?)?.toDouble() ?? 0;
-      final shopName = (row['suppliers'] as Map?)?['shop_name'] as String?
-          ?? sid.substring(0, 8);
+      final shopName = (row['suppliers'] as Map?)?['shop_name'] as String? ??
+          'Shop ${sid.substring(0, 4)}';
       map[sid] = _SupplierRevenue(
         shopName: shopName,
         revenue: (map[sid]?.revenue ?? 0) + subtotal,
       );
     }
-    // Sort descending by revenue.
     final sorted = map.entries.toList()
       ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
     _bySupplier = Map.fromEntries(sorted);
@@ -63,133 +59,187 @@ class _State extends State<AnalyticsScreen> {
 
   List<double> _peakHours() {
     final buckets = List<double>.filled(24, 0);
-    for (final s in _sessions) {
-      buckets[s.placedAt.hour] += 1;
+    for (final s in _delivered) {
+      buckets[s.placedAt.toLocal().hour] += 1;
     }
     return buckets;
   }
 
-  double get _totalRevenue =>
-      _sessions.fold(0, (s, o) => s + o.total);
+  double get _revenue => _delivered.fold(0, (s, o) => s + o.total);
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    final hours = _peakHours();
+    final aov = _delivered.isEmpty ? 0.0 : _revenue / _delivered.length;
+    final cancelRate =
+        _totalSessions == 0 ? 0 : (_cancelled / _totalSessions * 100).round();
+
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       children: [
         AdminPageTitle(
           'Analytics',
-          trailing: IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          subtitle: 'Revenue, demand patterns and supplier performance',
+          trailing: AdminIconButton(
+              icon: Icons.refresh_rounded, tooltip: 'Refresh', onPressed: _load),
         ),
-        // Summary KPIs.
         Wrap(spacing: 16, runSpacing: 16, children: [
           KpiCard(
-            label: 'Total Revenue',
-            value: formatRupees(_totalRevenue),
-            icon: Icons.payments,
-            color: AppColors.secondary,
-          ),
+              label: 'Total Revenue',
+              value: formatRupees(_revenue),
+              icon: Icons.payments_rounded,
+              color: AdminTheme.cDelivered),
           KpiCard(
-            label: 'Delivered Orders',
-            value: '${_sessions.length}',
-            icon: Icons.check_circle_outline,
-            color: AppColors.primary,
-          ),
+              label: 'Delivered Orders',
+              value: '${_delivered.length}',
+              icon: Icons.check_circle_rounded,
+              color: AdminTheme.chartBlue),
           KpiCard(
-            label: 'Active Suppliers',
-            value: '${_bySupplier.length}',
-            icon: Icons.storefront,
-            color: const Color(0xFF6C5CE7),
-          ),
+              label: 'Avg Order Value',
+              value: formatRupees(aov),
+              icon: Icons.receipt_long_rounded,
+              color: const Color(0xFF6C5CE7)),
+          KpiCard(
+              label: 'Cancelled',
+              value: '$_cancelled',
+              icon: Icons.cancel_rounded,
+              color: AdminTheme.cCancelled,
+              subtitle: '$cancelRate% of orders'),
+          KpiCard(
+              label: 'Selling Shops',
+              value: '${_bySupplier.length}',
+              icon: Icons.storefront_rounded,
+              color: AdminTheme.accent),
         ]),
         const SizedBox(height: 24),
-        // Peak hours bar chart.
-        AdminCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Peak Ordering Hours',
-                  style:
-                      TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 220,
-                child: BarChart(BarChartData(
-                  titlesData: const FlTitlesData(
-                    leftTitles: AxisTitles(
-                        sideTitles:
-                            SideTitles(showTitles: true, reservedSize: 28)),
-                    topTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                            showTitles: true, reservedSize: 20)),
-                  ),
-                  barGroups: [
-                    for (var h = 0; h < 24; h++)
-                      BarChartGroupData(x: h, barRods: [
-                        BarChartRodData(
-                            toY: hours[h],
-                            color: AppColors.primary,
-                            width: 6),
-                      ]),
-                  ],
-                )),
+        _peakHoursCard(),
+        const SizedBox(height: 24),
+        _revenueBySupplierCard(),
+      ],
+    );
+  }
+
+  Widget _peakHoursCard() {
+    final hours = _peakHours();
+    final maxY = hours.fold<double>(0, (m, v) => v > m ? v : m);
+    return SectionCard(
+      title: 'Peak ordering hours',
+      subtitle: 'When customers place orders (local time)',
+      child: SizedBox(
+        height: 240,
+        child: BarChart(
+          BarChartData(
+            maxY: (maxY < 3 ? 3 : maxY + 1),
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              getDrawingHorizontalLine: (_) =>
+                  const FlLine(color: AdminTheme.border, strokeWidth: 1),
+            ),
+            borderData: FlBorderData(show: false),
+            barTouchData: BarTouchData(
+              touchTooltipData: BarTouchTooltipData(
+                tooltipBgColor: AdminTheme.ink,
+                getTooltipItem: (g, _, r, __) => BarTooltipItem(
+                  '${g.x}:00\n${r.toY.toInt()} orders',
+                  const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
               ),
+            ),
+            titlesData: FlTitlesData(
+              leftTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: true, reservedSize: 30)),
+              topTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 24,
+                  getTitlesWidget: (v, _) {
+                    final h = v.toInt();
+                    if (h % 4 != 0) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text('${h}h',
+                          style: const TextStyle(
+                              fontSize: 11, color: AdminTheme.inkMuted)),
+                    );
+                  },
+                ),
+              ),
+            ),
+            barGroups: [
+              for (var h = 0; h < 24; h++)
+                BarChartGroupData(x: h, barRods: [
+                  BarChartRodData(
+                    toY: hours[h],
+                    color: AdminTheme.chartBlue,
+                    width: 8,
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(4)),
+                  ),
+                ]),
             ],
           ),
         ),
-        const SizedBox(height: 24),
-        // Revenue by supplier.
-        AdminCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: Text('Revenue by Supplier',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 16)),
-              ),
-              const Divider(height: 1),
-              if (_bySupplier.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('No delivered orders yet',
-                      style: TextStyle(color: AppColors.textMuted)),
-                ),
-              ..._bySupplier.values.map((s) => Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
-                        child: Row(children: [
-                          const Icon(Icons.storefront,
-                              size: 18, color: AppColors.primary),
-                          const SizedBox(width: 10),
+      ),
+    );
+  }
+
+  Widget _revenueBySupplierCard() {
+    final top = _bySupplier.values.take(8).toList();
+    final maxRev = top.isEmpty
+        ? 1.0
+        : top.map((e) => e.revenue).reduce((a, b) => a > b ? a : b);
+    return SectionCard(
+      title: 'Revenue by supplier',
+      subtitle: 'Delivered goods revenue (excludes delivery fee)',
+      child: top.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('No delivered orders yet',
+                  style: TextStyle(color: AdminTheme.inkMuted)))
+          : Column(
+              children: [
+                for (final s in top)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
                           Expanded(
                             child: Text(s.shopName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13.5,
+                                    color: AdminTheme.ink)),
                           ),
                           Text(formatRupees(s.revenue),
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.secondary)),
+                                  fontWeight: FontWeight.w700,
+                                  color: AdminTheme.cDelivered)),
                         ]),
-                      ),
-                      const Divider(height: 1),
-                    ],
-                  )),
-            ],
-          ),
-        ),
-      ],
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: (s.revenue / maxRev).clamp(0.02, 1.0),
+                            minHeight: 8,
+                            backgroundColor: AdminTheme.bg,
+                            valueColor: const AlwaysStoppedAnimation(
+                                AdminTheme.chartBlue),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }
