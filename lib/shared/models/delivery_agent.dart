@@ -5,6 +5,7 @@ class DeliveryAgent {
   final bool isAvailable;
   final double? currentLat;
   final double? currentLng;
+  final DateTime? locationUpdatedAt;
   final String? name;
   final String? vehicleType;
   final String? address;
@@ -17,6 +18,7 @@ class DeliveryAgent {
     this.isAvailable = false,
     this.currentLat,
     this.currentLng,
+    this.locationUpdatedAt,
     this.name,
     this.vehicleType,
     this.address,
@@ -30,6 +32,8 @@ class DeliveryAgent {
         isAvailable: m['is_available'] as bool? ?? false,
         currentLat: (m['current_lat'] as num?)?.toDouble(),
         currentLng: (m['current_lng'] as num?)?.toDouble(),
+        locationUpdatedAt:
+            DateTime.tryParse(m['location_updated_at'] as String? ?? ''),
         name: m['name'] as String?,
         vehicleType: m['vehicle_type'] as String?,
         address: m['address'] as String?,

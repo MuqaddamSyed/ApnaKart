@@ -85,18 +85,27 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
     }
   }
 
+  bool _pingBusy = false;
+
   void _startPinging() {
     _ping = Timer.periodic(
         Duration(seconds: AppConstants.agentPingSeconds), (_) async {
       final uid = supabase.auth.currentUser?.id;
-      if (uid == null) return;
+      if (uid == null || _pingBusy) return; // never stack slow GPS fixes
+      _pingBusy = true;
       try {
-        final loc =
-            await ref.read(locationServiceProvider).getCurrentLocation();
+        // Time-boxed below the ping interval so ticks can't overlap.
+        final fix = await ref
+            .read(locationServiceProvider)
+            .getFix(timeLimit: const Duration(seconds: 8));
         await ref
             .read(locationServiceProvider)
-            .updateAgentLocation(uid, loc.latitude, loc.longitude);
-      } catch (_) {}
+            .updateAgentLocation(uid, fix.latitude, fix.longitude);
+      } catch (_) {
+        /* skip this tick; the next one retries */
+      } finally {
+        _pingBusy = false;
+      }
     });
   }
 
@@ -218,35 +227,58 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
           }
           final session = snap.data!;
           final isArrived = _arrived;
-          final destLat = session.deliveryLat ?? 14.47;
-          final destLng = session.deliveryLng ?? 75.92;
+          // Never invent a destination: with no GPS pin on the order, showing
+          // a fallback point would send the agent to the wrong place.
+          final destLat = session.deliveryLat;
+          final destLng = session.deliveryLng;
+          final hasPin = destLat != null && destLng != null;
 
           return Column(
             children: [
-              SizedBox(
-                height: 200,
-                child: FlutterMap(
-                  options: MapOptions(
-                      initialCenter: LatLng(destLat, destLng), initialZoom: 14),
-                  children: [
-                    TileLayer(
-                      urlTemplate: MapConfig.tileUrl,
-                      userAgentPackageName: 'com.quickkart.delivery',
-                    ),
-                    MarkerLayer(markers: [
-                      Marker(
-                        point: LatLng(destLat, destLng),
-                        child: const Icon(Icons.home,
-                            color: AppColors.primary, size: 36),
+              if (hasPin)
+                SizedBox(
+                  height: 200,
+                  child: FlutterMap(
+                    options: MapOptions(
+                        initialCenter: LatLng(destLat, destLng),
+                        initialZoom: 14),
+                    children: [
+                      TileLayer(
+                        urlTemplate: MapConfig.tileUrl,
+                        userAgentPackageName: 'com.quickkart.delivery',
                       ),
-                    ]),
-                    const SimpleAttributionWidget(
-                      source: Text(MapConfig.attribution),
-                      backgroundColor: Colors.white70,
+                      MarkerLayer(markers: [
+                        Marker(
+                          point: LatLng(destLat, destLng),
+                          child: const Icon(Icons.home,
+                              color: AppColors.primary, size: 36),
+                        ),
+                      ]),
+                      const SimpleAttributionWidget(
+                        source: Text(MapConfig.attribution),
+                        backgroundColor: Colors.white70,
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  color: const Color(0xFFFFF3E0),
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    const Icon(Icons.location_off, color: Color(0xFFE65100)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'This order has no GPS pin. Deliver using the written '
+                        'address below — call the customer if you need directions.',
+                        style: TextStyle(
+                            color: Colors.orange.shade900, fontSize: 13),
+                      ),
                     ),
-                  ],
+                  ]),
                 ),
-              ),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.all(16),
@@ -387,11 +419,22 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                                         fontWeight: FontWeight.w700)),
                               ),
                             const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              icon: const Icon(Icons.navigation, size: 16),
-                              label: const Text('Navigate to customer'),
-                              onPressed: () => _navigate(destLat, destLng),
-                            ),
+                            // Only offer navigation to a REAL pin; otherwise
+                            // the call button + written address are the truth.
+                            if (hasPin)
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.navigation, size: 16),
+                                label: const Text('Navigate to customer'),
+                                onPressed: () =>
+                                    _navigate(destLat, destLng),
+                              )
+                            else if (_customerPhone != null)
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.call, size: 16),
+                                label:
+                                    const Text('Call customer for directions'),
+                                onPressed: () => _call(_customerPhone),
+                              ),
                           ],
                         ),
                       ),

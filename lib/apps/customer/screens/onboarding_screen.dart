@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/services/address_service.dart';
+import '../../../shared/services/location_service.dart';
 import '../../../shared/services/supabase_client.dart';
 import '../../../shared/utils/validators.dart';
 
@@ -40,9 +41,25 @@ class _State extends ConsumerState<CustomerOnboardingScreen> {
 
   Future<void> _useCurrentLocation() async {
     setState(() { _locating = true; _error = null; });
+    final svc = ref.read(locationServiceProvider);
     try {
-      final pos = await ref.read(locationServiceProvider).getCurrentLocation();
-      setState(() { _lat = pos.latitude; _lng = pos.longitude; });
+      final fix = await svc.getFix();
+      setState(() { _lat = fix.latitude; _lng = fix.longitude; });
+      if (!fix.isPrecise && mounted) {
+        // Coarse fix: usable, but tell the user so they can improve it.
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Location is approximate (±${fix.accuracyM.round()}m). '
+                'Move to an open area and tap again for a precise pin.')));
+      }
+    } on LocationFailure catch (f) {
+      setState(() => _error = f.message);
+      if (f.settingsCanFix && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(f.message),
+          action: SnackBarAction(
+              label: 'SETTINGS', onPressed: () => svc.openSystemSettings(f)),
+        ));
+      }
     } catch (e) {
       setState(() => _error = 'Could not get location: $e');
     } finally {

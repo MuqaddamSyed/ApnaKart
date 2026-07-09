@@ -118,8 +118,20 @@ class _State extends State<AdminAgentsScreen> {
                       markers: online
                           .map((a) => Marker(
                                 point: LatLng(a.currentLat!, a.currentLng!),
-                                child: const Icon(Icons.location_on,
-                                    color: AppColors.primary, size: 32),
+                                // Grey = stale ping (>2 min): the agent's app
+                                // is closed and this is a last-known position.
+                                child: Icon(Icons.location_on,
+                                    color: a.locationUpdatedAt != null &&
+                                            DateTime.now()
+                                                    .toUtc()
+                                                    .difference(a
+                                                        .locationUpdatedAt!
+                                                        .toUtc())
+                                                    .inMinutes <
+                                                2
+                                        ? AppColors.primary
+                                        : Colors.grey,
+                                    size: 32),
                               ))
                           .toList(),
                     ),

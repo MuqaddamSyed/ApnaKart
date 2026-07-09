@@ -89,11 +89,18 @@ class _State extends ConsumerState<OrderTrackingScreen> {
     if (session?['delivery_id'] != null) {
       final a = await supabase
           .from('delivery_agents')
-          .select('current_lat,current_lng,users(name,phone)')
+          .select('current_lat,current_lng,location_updated_at,users(name,phone)')
           .eq('id', session!['delivery_id'])
           .maybeSingle();
       if (mounted) setState(() => _agent = a);
     }
+  }
+
+  String _ago(DateTime t) {
+    final d = DateTime.now().toUtc().difference(t.toUtc());
+    if (d.inMinutes < 1) return '${d.inSeconds}s ago';
+    if (d.inHours < 1) return '${d.inMinutes} min ago';
+    return '${d.inHours}h ago';
   }
 
   Future<void> _call(String? phone) async {
@@ -153,6 +160,14 @@ class _State extends ConsumerState<OrderTrackingScreen> {
           final session = snap.data!;
           final agentLat = (_agent?['current_lat'] as num?)?.toDouble();
           final agentLng = (_agent?['current_lng'] as num?)?.toDouble();
+          // The agent only pings while the delivery screen is open, so a pin
+          // can freeze. Older than 60s = stale: grey it and drop the ETA
+          // rather than presenting dead data as live.
+          final locTs = DateTime.tryParse(
+              (_agent?['location_updated_at'] as String?) ?? '');
+          final agentStale = locTs == null ||
+              DateTime.now().toUtc().difference(locTs.toUtc()) >
+                  const Duration(seconds: 60);
           // Use live status map so isArrived updates without re-fetching.
           final isArrived = session.status == SessionStatus.out_for_delivery &&
               _liveStatus.values.any((s) => s == OrderStatus.arrived);
@@ -161,6 +176,7 @@ class _State extends ConsumerState<OrderTrackingScreen> {
 
           int? etaMin;
           if (session.status == SessionStatus.out_for_delivery &&
+              !agentStale &&
               agentLat != null &&
               agentLng != null &&
               session.deliveryLat != null &&
@@ -219,8 +235,11 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                         if (agentLat != null && agentLng != null)
                           Marker(
                             point: LatLng(agentLat, agentLng),
-                            child: const Icon(Icons.delivery_dining,
-                                color: AppColors.primary, size: 36),
+                            child: Icon(Icons.delivery_dining,
+                                color: agentStale
+                                    ? Colors.grey
+                                    : AppColors.primary,
+                                size: 36),
                           ),
                         if (session.deliveryLat != null &&
                             session.deliveryLng != null)
@@ -239,6 +258,18 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                   ),
                 ),
               ),
+              // Honesty caption: never present a frozen pin as live.
+              if (agentLat != null && agentLng != null && agentStale)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    locTs == null
+                        ? 'Agent location not available yet'
+                        : 'Agent last seen ${_ago(locTs)} — showing last known position',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ),
               if (etaMin != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),

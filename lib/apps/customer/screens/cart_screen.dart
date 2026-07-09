@@ -90,10 +90,42 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       // instead of the address the customer picked.
       if (lat == null || lng == null) {
         try {
-          final loc = await ref.read(locationServiceProvider).getCurrentLocation();
-          lat = loc.latitude;
-          lng = loc.longitude;
-        } catch (_) {}
+          final fix = await ref.read(locationServiceProvider).getFix();
+          // Only trust a precise fix: a coarse (cell-tower) point can be
+          // streets away and would send the agent to the wrong place.
+          if (fix.isPrecise) {
+            lat = fix.latitude;
+            lng = fix.longitude;
+          }
+        } catch (_) {/* handled by the confirmation below */}
+        // No usable GPS pin: the agent will only have the written address.
+        // Make that explicit instead of silently placing a pin-less order.
+        if (lat == null || lng == null) {
+          if (!mounted) return;
+          final proceed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('No GPS location'),
+              content: const Text(
+                  'We couldn\'t get your exact location, so the delivery '
+                  'agent will rely only on your written address.\n\n'
+                  'Please make sure the address is complete (house, street, '
+                  'landmark).'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Fix address')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Place order anyway')),
+              ],
+            ),
+          );
+          if (proceed != true) {
+            if (mounted) setState(() => _placing = false);
+            return;
+          }
+        }
       }
 
       final sessionId = await ref.read(orderServiceProvider).placeMultiSupplierOrder(
