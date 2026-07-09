@@ -17,6 +17,94 @@ class ProfileScreen extends ConsumerWidget {
     if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  /// Permanent account deletion (store requirement). Two-step so it can't be
+  /// triggered by accident: explain first, then require typing DELETE.
+  Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
+    final warned = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete account?'),
+        content: const Text(
+          'This permanently deletes your account, saved addresses and profile. '
+          'This cannot be undone.\n\nYour past order history stays with the '
+          'shops for their records but is no longer linked to you.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Continue',
+                style: TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (warned != true || !context.mounted) return;
+
+    final confirmCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Confirm deletion'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Type DELETE to confirm.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmCtrl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(hintText: 'DELETE'),
+                onChanged: (_) => setLocal(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.danger),
+              onPressed: confirmCtrl.text.trim().toUpperCase() == 'DELETE'
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              child: const Text('Delete forever'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      await supabase.rpc('delete_my_account');
+      await ref.read(authServiceProvider).signOut();
+      if (context.mounted) {
+        Navigator.pop(context); // close spinner
+        context.go(Routes.login);
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Your account has been deleted.')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // close spinner
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not delete account: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = supabase.auth.currentUser;
@@ -52,6 +140,15 @@ class ProfileScreen extends ConsumerWidget {
               if (context.mounted) context.go(Routes.login);
             },
           ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: AppColors.danger),
+            title: const Text('Delete account',
+                style: TextStyle(color: AppColors.danger)),
+            subtitle: const Text('Permanently remove your account and data'),
+            onTap: () => _deleteAccount(context, ref),
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );
