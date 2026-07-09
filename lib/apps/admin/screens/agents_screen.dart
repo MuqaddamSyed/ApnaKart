@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/map_config.dart';
 import '../../../shared/models/delivery_agent.dart';
 import '../../../shared/services/supabase_client.dart';
 
@@ -107,7 +108,7 @@ class _State extends State<AdminAgentsScreen> {
                       initialCenter: LatLng(14.4644, 75.9218), initialZoom: 12),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: MapConfig.tileUrl,
                       userAgentPackageName: 'com.quickkart.admin',
                     ),
                     MarkerLayer(
@@ -118,6 +119,10 @@ class _State extends State<AdminAgentsScreen> {
                                     color: AppColors.primary, size: 32),
                               ))
                           .toList(),
+                    ),
+                    const SimpleAttributionWidget(
+                      source: Text(MapConfig.attribution),
+                      backgroundColor: Colors.white70,
                     ),
                   ],
                 ),

@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/map_config.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/order_session.dart';
 import '../../../shared/services/providers.dart';
@@ -211,8 +212,7 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        urlTemplate: MapConfig.tileUrl,
                         userAgentPackageName: 'com.quickkart.customer',
                       ),
                       MarkerLayer(markers: [
@@ -231,6 +231,10 @@ class _State extends ConsumerState<OrderTrackingScreen> {
                                 color: AppColors.secondary, size: 32),
                           ),
                       ]),
+                      const SimpleAttributionWidget(
+                        source: Text(MapConfig.attribution),
+                        backgroundColor: Colors.white70,
+                      ),
                     ],
                   ),
                 ),

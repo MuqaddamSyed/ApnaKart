@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/map_config.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/models/order_session.dart';
 import '../../../shared/services/providers.dart';
@@ -229,8 +230,7 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                       initialCenter: LatLng(destLat, destLng), initialZoom: 14),
                   children: [
                     TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: MapConfig.tileUrl,
                       userAgentPackageName: 'com.quickkart.delivery',
                     ),
                     MarkerLayer(markers: [
@@ -240,6 +240,10 @@ class _State extends ConsumerState<ActiveDeliveryScreen> {
                             color: AppColors.primary, size: 36),
                       ),
                     ]),
+                    const SimpleAttributionWidget(
+                      source: Text(MapConfig.attribution),
+                      backgroundColor: Colors.white70,
+                    ),
                   ],
                 ),
               ),
