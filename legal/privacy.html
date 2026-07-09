@@ -9,76 +9,172 @@
   body { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px;
     font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     color: #1a1a1a; background: #fff; }
-  @media (prefers-color-scheme: dark) { body { color: #e6e6e6; background: #121212; } a { color: #6ab0ff; } }
+  @media (prefers-color-scheme: dark) { body { color: #e6e6e6; background: #121212; } a { color: #6ab0ff; } th { background:#1e1e1e; } }
   h1 { font-size: 28px; margin-bottom: 4px; }
   h2 { font-size: 20px; margin-top: 32px; }
+  h3 { font-size: 17px; margin-top: 20px; }
   .meta { color: #888; font-size: 14px; margin-bottom: 24px; }
-  .fill { background: #fff3cd; color: #664d03; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
-  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; }
+  a { color: #0a66c2; }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; min-width: 480px; }
   th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; vertical-align: top; }
-  @media (prefers-color-scheme: dark) { th, td { border-color: #444; } .fill { background:#4d3800; color:#ffd970; } }
+  th { background: #f4f4f4; }
+  @media (prefers-color-scheme: dark) { th, td { border-color: #444; } }
 </style>
 </head>
 <body>
 <h1>Privacy Policy — myMinto</h1>
-<p class="meta">Last updated: <span class="fill">[DATE]</span></p>
+<p class="meta">Last Updated: 10 July 2026</p>
 
-<p>This Privacy Policy explains how <span class="fill">[LEGAL ENTITY NAME]</span> ("myMinto", "we", "us")
-collects, uses, and protects your information when you use the myMinto customer app and related services.
-By using myMinto, you agree to this policy.</p>
+<p>This Privacy Policy explains how <strong>Frillings</strong> ("myMinto", "we", "our", or "us") collects,
+uses, stores, shares, and protects your personal information when you use the myMinto mobile application,
+website, and related services.</p>
+<p>By accessing or using myMinto, you acknowledge that you have read and understood this Privacy Policy.</p>
 
-<h2>1. Information we collect</h2>
+<h2>1. Information We Collect</h2>
+<p>We collect only the information necessary to provide and improve our services.</p>
+<div class="tablewrap">
 <table>
-  <tr><th>Data</th><th>Why we collect it</th></tr>
-  <tr><td>Name</td><td>To identify your account and orders</td></tr>
-  <tr><td>Phone number</td><td>Account sign-in, order updates, and so the delivery agent/shop can reach you</td></tr>
-  <tr><td>Email address</td><td>Sign-in via one-time password (OTP) and account communication</td></tr>
-  <tr><td>Delivery address &amp; approximate/precise location (GPS)</td><td>To show nearby shops and to deliver your orders to the correct place. Location is used <strong>only while the app is open</strong>; we do not track your location in the background.</td></tr>
-  <tr><td>Order history</td><td>To show your past orders and operate the service</td></tr>
-  <tr><td>Device push token</td><td>To send you order status notifications</td></tr>
+  <tr><th>Information</th><th>Purpose</th></tr>
+  <tr><td>Full Name</td><td>To identify your account and orders</td></tr>
+  <tr><td>Mobile Number</td><td>Account verification, order updates, customer support, and communication with shops and delivery partners</td></tr>
+  <tr><td>Email Address</td><td>Login authentication, OTP verification, account notifications, and support</td></tr>
+  <tr><td>Delivery Address</td><td>Deliver orders accurately and save frequently used addresses</td></tr>
+  <tr><td>GPS Location (Approximate or Precise)</td><td>To show nearby shops, estimate delivery time, calculate delivery charges, and assist delivery partners. Location is accessed only while the app is in use unless you explicitly grant additional permissions.</td></tr>
+  <tr><td>Order History</td><td>To display previous orders, customer support, dispute resolution, and improve our services</td></tr>
+  <tr><td>Device Information</td><td>Device type, operating system, app version, IP address, crash reports, and diagnostics for security and performance</td></tr>
+  <tr><td>Push Notification Token</td><td>To send order status updates, promotional notifications (where permitted), and service announcements</td></tr>
+  <tr><td>Customer Support Messages</td><td>To investigate complaints, improve service quality, and resolve disputes</td></tr>
 </table>
-<p>We do <strong>not</strong> collect payment card or bank details. Orders are Cash on Delivery.</p>
+</div>
+<p><strong>Important:</strong> myMinto does <strong>not</strong> collect or store debit card, credit card,
+UPI PINs, banking passwords, or other payment credentials. Orders are currently fulfilled using
+<strong>Cash on Delivery (COD)</strong>.</p>
 
-<h2>2. How we use your information</h2>
-<p>To create and manage your account, place and deliver orders, show nearby shops, send order updates,
-provide customer support, and keep the service secure. We do not sell your personal data.</p>
-
-<h2>3. Who we share it with</h2>
-<p>We share only what is necessary to fulfil your order:</p>
+<h2>2. How We Use Your Information</h2>
+<p>We use your information to:</p>
 <ul>
-  <li><strong>Shops (suppliers)</strong> and <strong>delivery agents</strong> involved in your order receive your delivery address, location pin, and phone number.</li>
-  <li><strong>Service providers</strong> that operate our infrastructure: Supabase (database &amp; hosting), Brevo (email OTP), Firebase Cloud Messaging (notifications), and MapTiler / Google Maps (maps &amp; navigation).</li>
-  <li><strong>Legal</strong>: where required by law.</li>
+  <li>Create and manage your account.</li>
+  <li>Authenticate your identity.</li>
+  <li>Process and deliver orders.</li>
+  <li>Connect you with nearby shops and delivery partners.</li>
+  <li>Send order confirmations and delivery updates.</li>
+  <li>Respond to customer support requests.</li>
+  <li>Prevent fraud, abuse, and unauthorized access.</li>
+  <li>Improve application performance and user experience.</li>
+  <li>Comply with legal obligations.</li>
+  <li>Send promotional offers and updates where permitted by law, with an option to opt out where applicable.</li>
+</ul>
+<p>We <strong>do not sell</strong> your personal information to advertisers or third parties.</p>
+
+<h2>3. Location Information</h2>
+<p>Location access helps us:</p>
+<ul>
+  <li>Display shops near you.</li>
+  <li>Estimate delivery time.</li>
+  <li>Calculate delivery charges.</li>
+  <li>Guide delivery partners to your location.</li>
+</ul>
+<p>We access your location only when necessary to provide these services and according to the permissions
+you grant on your device.</p>
+
+<h2>4. Information Sharing</h2>
+<p>We share your information only when necessary.</p>
+<h3>Shops</h3>
+<p>The shop fulfilling your order receives: your name, delivery address, contact number, ordered products,
+and delivery instructions (if provided).</p>
+<h3>Delivery Partners</h3>
+<p>Delivery partners receive: your name, contact number, delivery address, location pin, and delivery
+instructions.</p>
+<h3>Technology Service Providers</h3>
+<p>We may share limited information with trusted service providers that help operate our platform,
+including:</p>
+<ul>
+  <li><strong>Supabase</strong> — Database, authentication, and backend infrastructure</li>
+  <li><strong>Brevo</strong> — Email delivery and OTP verification</li>
+  <li><strong>Firebase Cloud Messaging (FCM)</strong> — Push notifications</li>
+  <li><strong>MapTiler and/or Google Maps</strong> — Maps, routing, and location services</li>
+</ul>
+<p>These providers process data only as necessary to provide their services.</p>
+<h3>Legal Requirements</h3>
+<p>We may disclose personal information when required by applicable law, court orders, government
+authorities, law enforcement agencies, or regulatory bodies, or when necessary to protect our legal
+rights, customers, delivery partners, or the public.</p>
+
+<h2>5. Data Retention</h2>
+<p>We retain personal information only for as long as necessary to operate your account, fulfil orders,
+resolve disputes, and meet legal, accounting, and regulatory obligations.</p>
+<p>When you permanently delete your account:</p>
+<ul>
+  <li>Your personal profile is removed.</li>
+  <li>Saved addresses are deleted.</li>
+  <li>Authentication credentials are removed.</li>
+  <li>Order history is anonymized where reasonably possible.</li>
+  <li>Certain records may be retained if required by law, tax regulations, fraud prevention, or dispute resolution.</li>
 </ul>
 
-<h2>4. Data retention</h2>
-<p>We keep your personal data for as long as your account is active. When you delete your account,
-your personal data is removed and past orders are anonymised (kept for the shops' accounting records
-but no longer linked to you).</p>
+<h2>6. Account Deletion</h2>
+<p>You may permanently delete your account at any time through <strong>Profile → Delete Account</strong>.
+Deleting your account permanently removes your personal profile and associated information, subject to any
+legal retention requirements.</p>
+<p>You may also request deletion by contacting
+<a href="mailto:customer_care@myminto.in">customer_care@myminto.in</a>. Identity verification may be
+required before processing deletion requests.</p>
 
-<h2>5. Deleting your account</h2>
-<p>You can delete your account and personal data at any time, directly in the app:
-<strong>Profile → Delete account</strong>. This permanently removes your profile, saved addresses, and
-sign-in identity. To request deletion by other means, contact us at <span class="fill">[SUPPORT EMAIL]</span>.</p>
+<h2>7. Data Security</h2>
+<p>We take reasonable technical and organizational measures to protect your information, including:</p>
+<ul>
+  <li>HTTPS encryption for data transmission.</li>
+  <li>Secure authentication.</li>
+  <li>Database access controls.</li>
+  <li>Row-Level Security (RLS) where applicable.</li>
+  <li>Limited employee access based on business need.</li>
+  <li>Continuous monitoring for unauthorized access.</li>
+</ul>
+<p>While we strive to protect your information, no method of electronic storage or internet transmission is
+completely secure. Therefore, absolute security cannot be guaranteed.</p>
 
-<h2>6. Security</h2>
-<p>Data is transmitted over encrypted connections (HTTPS) and access to the database is restricted by
-row-level security so users can only access their own data.</p>
+<h2>8. Your Privacy Rights</h2>
+<p>Subject to applicable law, you may have the right to:</p>
+<ul>
+  <li>Access your personal information.</li>
+  <li>Correct inaccurate information.</li>
+  <li>Update your account information.</li>
+  <li>Delete your account.</li>
+  <li>Withdraw consent where processing is based on consent.</li>
+  <li>Request information about how your personal data is processed.</li>
+</ul>
+<p>Most account information can be managed directly within the app. For additional requests, contact
+<a href="mailto:customer_care@myminto.in">customer_care@myminto.in</a>.</p>
 
-<h2>7. Children</h2>
-<p>myMinto is not directed at children under 13, and we do not knowingly collect their data.</p>
+<h2>9. Children's Privacy</h2>
+<p>myMinto is intended for individuals aged <strong>13 years or older</strong>. If you are under 18, you
+should use the service with the guidance or permission of a parent or legal guardian. We do not knowingly
+collect personal information from children under the age of 13. If we become aware that personal
+information has been collected from a child under 13 without appropriate consent, we will take reasonable
+steps to delete that information.</p>
 
-<h2>8. Your rights</h2>
-<p>You may access, correct, or delete your data. Account and address data can be edited in the app;
-for other requests contact us at <span class="fill">[SUPPORT EMAIL]</span>.</p>
+<h2>10. Third-Party Services</h2>
+<p>Our application may use services provided by third parties. These services maintain their own privacy
+policies and practices. Examples include Supabase, Firebase Cloud Messaging, Google Maps, MapTiler, and
+Brevo. We encourage users to review the privacy policies of these providers where applicable.</p>
 
-<h2>9. Changes to this policy</h2>
-<p>We may update this policy; material changes will be reflected by the "Last updated" date above.</p>
+<h2>11. Cookies and Analytics</h2>
+<p>Where applicable, our website or application may use cookies, local storage, and analytics technologies
+to remember user preferences, improve performance, understand usage patterns, and diagnose technical
+issues. You may disable cookies through your browser settings, although some features may not function
+correctly.</p>
 
-<h2>10. Contact</h2>
-<p><span class="fill">[LEGAL ENTITY NAME]</span><br>
-Email: <span class="fill">[SUPPORT EMAIL]</span><br>
-Phone/WhatsApp: <span class="fill">[SUPPORT PHONE]</span><br>
-Address: <span class="fill">[BUSINESS ADDRESS, CITY, STATE, INDIA]</span></p>
+<h2>12. Changes to this Privacy Policy</h2>
+<p>We may update this Privacy Policy from time to time. Any significant changes will be reflected by
+updating the <strong>Last Updated</strong> date at the top of this page. Continued use of myMinto after
+changes become effective constitutes acceptance of the updated Privacy Policy.</p>
+
+<h2>13. Contact Us</h2>
+<p><strong>Frillings</strong><br>
+Email: <a href="mailto:customer_care@myminto.in">customer_care@myminto.in</a><br>
+Business Address: Karnataka, India</p>
+<p>For privacy-related questions, complaints, or requests regarding your personal information, please
+contact us using the details above.</p>
 </body>
 </html>
