@@ -6,23 +6,35 @@ reviewer never needs to receive an email.
 
 ## What the reviewer does (put this in the review notes)
 1. Open the app → Login.
-2. Email: **demo-customer@myminto.in**
+2. Email: the `REVIEWER_EMAIL` you set (suggested: `demo-customer@myminto.in`)
 3. Tap **Send OTP**.
-4. Enter code: **424242**
+4. Enter code: the `REVIEWER_CODE` you set (e.g. `424242`)
 5. Tap **Verify & Continue** → lands on the home screen with sample data.
 
-(These values are already in `store/listing_customer.md` reviewer notes.)
+## Credentials live in .env — NOT in the code
+The reviewer email, code, and password are read from `.env` (gitignored) via
+`REVIEWER_EMAIL`, `REVIEWER_CODE`, `REVIEWER_PASSWORD`. If any is blank the
+bypass is disabled. **Choose a fresh password** — do not reuse the value that
+was previously in git history.
+
+Set them in `.env` before building the store submission, e.g.:
+```
+REVIEWER_EMAIL=demo-customer@myminto.in
+REVIEWER_CODE=424242
+REVIEWER_PASSWORD=<a fresh strong password>
+```
 
 ## One-time setup you must do before submitting
 
 ### Step 1 — create the auth user (Supabase dashboard)
 Authentication → **Users** → **Add user** → **Create new user**:
-- Email: `demo-customer@myminto.in`
-- Password: `REDACTED-ROTATED`
+- Email: the same as `REVIEWER_EMAIL`
+- Password: the same as `REVIEWER_PASSWORD` in `.env`
 - ✅ tick **Auto Confirm User**
 
 (The app signs this account in by password behind the bypass code — the password
-must match exactly. To disable the bypass later, just change this password.)
+must match `.env` exactly. To disable the bypass later, blank the .env values
+and rebuild, or change the account password.)
 
 ### Step 2 — create its profile rows (SQL editor)
 Run after Step 1:

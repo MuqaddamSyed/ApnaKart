@@ -1,3 +1,4 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/app_user.dart';
 import 'supabase_client.dart';
@@ -7,21 +8,28 @@ class AuthService {
   // --- App Store / Play review bypass -------------------------------------
   // OTP-only apps get rejected when the reviewer can't receive the code. This
   // lets a reviewer sign in to ONE pre-created demo customer account without a
-  // real email: they enter [reviewerEmail] + [_reviewerCode] and the app signs
-  // in with the demo account's password instead of an OTP. The demo account is
-  // an ordinary customer with sample data — embedding these is intentional and
-  // safe. To disable after review, change the demo account's password in
-  // Supabase (sign-in then fails and the normal OTP path is unaffected).
-  static const reviewerEmail = 'demo-customer@myminto.in';
-  static const _reviewerCode = '424242';
-  static const _reviewerPassword = 'REDACTED-ROTATED';
+  // real email: they enter the reviewer email + code and the app signs in with
+  // the demo account's password instead of an OTP.
+  //
+  // All three values come from .env (never committed). If any is blank the
+  // bypass is fully DISABLED — so normal dev/release builds have no bypass at
+  // all; only a build with a populated .env (the store submission) enables it.
+  static String get reviewerEmail =>
+      (dotenv.env['REVIEWER_EMAIL'] ?? '').trim().toLowerCase();
+  static String get _reviewerCode => (dotenv.env['REVIEWER_CODE'] ?? '').trim();
+  static String get _reviewerPassword => dotenv.env['REVIEWER_PASSWORD'] ?? '';
+
+  bool get _bypassEnabled =>
+      reviewerEmail.isNotEmpty &&
+      _reviewerCode.isNotEmpty &&
+      _reviewerPassword.isNotEmpty;
 
   bool isReviewer(String email) =>
-      email.trim().toLowerCase() == reviewerEmail;
+      _bypassEnabled && email.trim().toLowerCase() == reviewerEmail;
 
   /// If [email]/[code] match the reviewer demo credentials, sign in via
   /// password and return the user id; otherwise return null so the normal OTP
-  /// path runs untouched.
+  /// path runs untouched. Only ever authenticates the one fixed demo account.
   Future<String?> tryReviewerBypass(String email, String code) async {
     if (!isReviewer(email) || code.trim() != _reviewerCode) return null;
     final res = await supabase.auth.signInWithPassword(
