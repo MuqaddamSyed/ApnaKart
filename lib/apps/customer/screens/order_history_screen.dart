@@ -24,18 +24,21 @@ class _State extends ConsumerState<OrderHistoryScreen> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    final uid = supabase.auth.currentUser?.id;
-    if (uid != null) {
-      final all = await ref.read(orderServiceProvider).getOrdersByCustomer(uid);
-      // Collapse multi-supplier orders: one card per session (keep standalone
-      // legacy orders that have no session_id).
-      final seen = <String>{};
-      _orders = [
-        for (final o in all)
-          if (o.sessionId == null || seen.add(o.sessionId!)) o
-      ];
+    try {
+      final uid = supabase.auth.currentUser?.id;
+      if (uid != null) {
+        final all = await ref.read(orderServiceProvider).getOrdersByCustomer(uid);
+        // Collapse multi-supplier orders: one card per session (keep standalone
+        // legacy orders that have no session_id).
+        final seen = <String>{};
+        _orders = [
+          for (final o in all)
+            if (o.sessionId == null || seen.add(o.sessionId!)) o
+        ];
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    if (mounted) setState(() => _loading = false);
   }
 
 

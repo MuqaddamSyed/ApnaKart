@@ -28,24 +28,27 @@ class _State extends ConsumerState<DashboardScreen> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    final uid = supabase.auth.currentUser?.id;
-    if (uid != null) {
-      final shop = await supabase.from('suppliers').select('is_open,is_verified').eq('id', uid).maybeSingle();
-      _hasShopProfile = shop != null;
-      _approved = shop?['is_verified'] as bool? ?? false;
-      _open = shop?['is_open'] as bool? ?? true;
-      if (_approved) {
-        _orders = await ref.read(orderServiceProvider).getOrdersBySupplier(uid);
-        // Earnings use RPCs from migrations 15/16. Guard them so a missing
-        // RPC (migration not yet applied) can't break the whole dashboard.
-        try {
-          _todayEarnings = await ref.read(orderServiceProvider).getTodaySupplierEarnings(uid);
-          _totalEarnings = await ref.read(orderServiceProvider).getTotalSupplierEarnings(uid);
-          _deliveryEarnings = await ref.read(orderServiceProvider).getSupplierDeliveryEarnings(uid);
-        } catch (_) {/* earnings stay 0 until migrations are applied */}
+    try {
+      final uid = supabase.auth.currentUser?.id;
+      if (uid != null) {
+        final shop = await supabase.from('suppliers').select('is_open,is_verified').eq('id', uid).maybeSingle();
+        _hasShopProfile = shop != null;
+        _approved = shop?['is_verified'] as bool? ?? false;
+        _open = shop?['is_open'] as bool? ?? true;
+        if (_approved) {
+          _orders = await ref.read(orderServiceProvider).getOrdersBySupplier(uid);
+          // Earnings use RPCs from migrations 15/16. Guard them so a missing
+          // RPC (migration not yet applied) can't break the whole dashboard.
+          try {
+            _todayEarnings = await ref.read(orderServiceProvider).getTodaySupplierEarnings(uid);
+            _totalEarnings = await ref.read(orderServiceProvider).getTotalSupplierEarnings(uid);
+            _deliveryEarnings = await ref.read(orderServiceProvider).getSupplierDeliveryEarnings(uid);
+          } catch (_) {/* earnings stay 0 until migrations are applied */}
+        }
       }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _toggleOpen(bool v) async {

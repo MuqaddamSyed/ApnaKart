@@ -22,12 +22,15 @@ class _State extends ConsumerState<EarningsScreen> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    final uid = supabase.auth.currentUser?.id;
-    if (uid != null) {
-      _orders = (await ref.read(orderServiceProvider).getOrdersBySupplier(uid))
-          .where((o) => o.status == OrderStatus.delivered).toList();
+    try {
+      final uid = supabase.auth.currentUser?.id;
+      if (uid != null) {
+        _orders = (await ref.read(orderServiceProvider).getOrdersBySupplier(uid))
+            .where((o) => o.status == OrderStatus.delivered).toList();
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    setState(() => _loading = false);
   }
 
   List<Order> get _filtered {

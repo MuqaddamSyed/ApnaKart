@@ -32,8 +32,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Future<void> _loadCategory(String category) async {
     setState(() => _loading = true);
-    final res = await ref.read(productServiceProvider).getProductsByCategory(category);
-    if (mounted) setState(() { _results = res; _loading = false; });
+    try {
+      final res = await ref.read(productServiceProvider).getProductsByCategory(category);
+      _results = res;
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _search(String q) async {
@@ -44,8 +48,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
     setState(() => _loading = true);
-    final res = await ref.read(productServiceProvider).searchProducts(q.trim());
-    setState(() { _results = res; _loading = false; });
+    try {
+      final res = await ref.read(productServiceProvider).searchProducts(q.trim());
+      _results = res;
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override

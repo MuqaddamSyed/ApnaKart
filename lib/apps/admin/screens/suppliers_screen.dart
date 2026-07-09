@@ -25,36 +25,39 @@ class _State extends State<AdminSuppliersScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    // Join with users to get phone; count products per supplier.
-    // Stable order by shop_name so a verify/open toggle doesn't reshuffle
-    // the list (Postgres reorders unordered rows after an update).
-    final supplierRows = await supabase
-        .from('suppliers')
-        .select('*, users(phone)')
-        .order('shop_name');
-    final productCounts = await supabase
-        .from('products')
-        .select('supplier_id');
+    try {
+      // Join with users to get phone; count products per supplier.
+      // Stable order by shop_name so a verify/open toggle doesn't reshuffle
+      // the list (Postgres reorders unordered rows after an update).
+      final supplierRows = await supabase
+          .from('suppliers')
+          .select('*, users(phone)')
+          .order('shop_name');
+      final productCounts = await supabase
+          .from('products')
+          .select('supplier_id');
 
-    final countMap = <String, int>{};
-    for (final p in (productCounts as List)) {
-      final sid = p['supplier_id'] as String;
-      countMap[sid] = (countMap[sid] ?? 0) + 1;
-    }
+      final countMap = <String, int>{};
+      for (final p in (productCounts as List)) {
+        final sid = p['supplier_id'] as String;
+        countMap[sid] = (countMap[sid] ?? 0) + 1;
+      }
 
-    if (mounted) {
-      setState(() {
-        _rows = (supplierRows as List).map((e) {
-          final phone = (e['users'] as Map?)?['phone'] as String?;
-          final supplier = Supplier.fromMap(e);
-          return _SupplierRow(
-            supplier: supplier,
-            phone: phone,
-            productCount: countMap[supplier.id] ?? 0,
-          );
-        }).toList();
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _rows = (supplierRows as List).map((e) {
+            final phone = (e['users'] as Map?)?['phone'] as String?;
+            final supplier = Supplier.fromMap(e);
+            return _SupplierRow(
+              supplier: supplier,
+              phone: phone,
+              productCount: countMap[supplier.id] ?? 0,
+            );
+          }).toList();
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

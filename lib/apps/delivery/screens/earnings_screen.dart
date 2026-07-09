@@ -20,18 +20,21 @@ class _State extends ConsumerState<DeliveryEarningsScreen> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    final uid = supabase.auth.currentUser?.id;
-    if (uid != null) {
-      // The agent's earning is the SESSION delivery fee (orders carry 0 —
-      // the fee lives on the session in the multi-supplier model).
-      final rows = await supabase.from('order_sessions')
-          .select('id, display_id, delivery_fee, delivered_at')
-          .eq('delivery_id', uid)
-          .eq('status', 'delivered')
-          .order('delivered_at', ascending: false);
-      _deliveries = (rows as List).cast<Map<String, dynamic>>();
+    try {
+      final uid = supabase.auth.currentUser?.id;
+      if (uid != null) {
+        // The agent's earning is the SESSION delivery fee (orders carry 0 —
+        // the fee lives on the session in the multi-supplier model).
+        final rows = await supabase.from('order_sessions')
+            .select('id, display_id, delivery_fee, delivered_at')
+            .eq('delivery_id', uid)
+            .eq('status', 'delivered')
+            .order('delivered_at', ascending: false);
+        _deliveries = (rows as List).cast<Map<String, dynamic>>();
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    if (mounted) setState(() => _loading = false);
   }
 
   List<Map<String, dynamic>> get _filtered {

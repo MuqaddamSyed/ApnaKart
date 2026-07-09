@@ -21,12 +21,15 @@ class _State extends State<AdminAgentsScreen> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    // Stable order by id so a verify toggle doesn't reshuffle the list
-    // (Postgres returns unordered rows in a different order after an update).
-    final rows =
-        await supabase.from('delivery_agents').select().order('id');
-    _agents = (rows as List).map((e) => DeliveryAgent.fromMap(e)).toList();
-    if (mounted) setState(() => _loading = false);
+    try {
+      // Stable order by id so a verify toggle doesn't reshuffle the list
+      // (Postgres returns unordered rows in a different order after an update).
+      final rows =
+          await supabase.from('delivery_agents').select().order('id');
+      _agents = (rows as List).map((e) => DeliveryAgent.fromMap(e)).toList();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _setVerified(DeliveryAgent agent, bool verified) async {

@@ -27,17 +27,21 @@ class _State extends ConsumerState<FastFoodScreen> {
   }
 
   Future<void> _load() async {
-    final rows = await supabase
-        .from('products')
-        .select('*, suppliers(shop_name, is_open)')
-        .eq('category', 'Fast Food')
-        .eq('is_available', true);
-    final map = <String, List<Product>>{};
-    for (final r in (rows as List)) {
-      final shop = (r['suppliers']?['shop_name'] as String?) ?? 'Fast Food';
-      map.putIfAbsent(shop, () => []).add(Product.fromMap(r));
+    try {
+      final rows = await supabase
+          .from('products')
+          .select('*, suppliers(shop_name, is_open)')
+          .eq('category', 'Fast Food')
+          .eq('is_available', true);
+      final map = <String, List<Product>>{};
+      for (final r in (rows as List)) {
+        final shop = (r['suppliers']?['shop_name'] as String?) ?? 'Fast Food';
+        map.putIfAbsent(shop, () => []).add(Product.fromMap(r));
+      }
+      _byShop = map;
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    if (mounted) setState(() { _byShop = map; _loading = false; });
   }
 
   @override

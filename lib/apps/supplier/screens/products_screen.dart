@@ -26,20 +26,23 @@ class _State extends ConsumerState<ProductsScreen> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    final uid = supabase.auth.currentUser?.id;
-    if (uid != null) {
-      final shop = await supabase
-          .from('suppliers')
-          .select('is_verified')
-          .eq('id', uid)
-          .maybeSingle();
-      _hasShopProfile = shop != null;
-      _approved = shop?['is_verified'] as bool? ?? false;
-      _products = _approved
-          ? await ref.read(productServiceProvider).getProductsBySupplier(uid)
-          : [];
+    try {
+      final uid = supabase.auth.currentUser?.id;
+      if (uid != null) {
+        final shop = await supabase
+            .from('suppliers')
+            .select('is_verified')
+            .eq('id', uid)
+            .maybeSingle();
+        _hasShopProfile = shop != null;
+        _approved = shop?['is_verified'] as bool? ?? false;
+        _products = _approved
+            ? await ref.read(productServiceProvider).getProductsBySupplier(uid)
+            : [];
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    setState(() => _loading = false);
   }
 
   Future<void> _toggle(Product p, bool v) async {

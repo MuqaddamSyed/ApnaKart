@@ -28,9 +28,14 @@ class _State extends ConsumerState<SupplierDetailScreen> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    final shop = await supabase.from('suppliers').select().eq('id', widget.supplierId).maybeSingle();
-    final products = await ref.read(productServiceProvider).getProductsBySupplier(widget.supplierId);
-    setState(() { _shop = shop; _products = products; _loading = false; });
+    try {
+      final shop = await supabase.from('suppliers').select().eq('id', widget.supplierId).maybeSingle();
+      final products = await ref.read(productServiceProvider).getProductsBySupplier(widget.supplierId);
+      _shop = shop;
+      _products = products;
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override

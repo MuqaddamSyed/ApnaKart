@@ -29,13 +29,16 @@ class _State extends State<AdminOrdersScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final rows = await supabase
-        .from('order_sessions')
-        .select()
-        .order('placed_at', ascending: false);
-    _sessions =
-        (rows as List).map((e) => OrderSession.fromMap(e)).toList();
-    setState(() => _loading = false);
+    try {
+      final rows = await supabase
+          .from('order_sessions')
+          .select()
+          .order('placed_at', ascending: false);
+      _sessions =
+          (rows as List).map((e) => OrderSession.fromMap(e)).toList();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _loadSubOrders(String sessionId) async {

@@ -51,22 +51,25 @@ class _State extends ConsumerState<OrdersScreen> with SingleTickerProviderStateM
   void dispose() { _poll?.cancel(); _tab.dispose(); super.dispose(); }
 
   Future<void> _loadApproval() async {
-    final uid = supabase.auth.currentUser?.id;
-    if (uid != null) {
-      final shop = await supabase
-          .from('suppliers')
-          .select('is_verified')
-          .eq('id', uid)
-          .maybeSingle();
-      _hasShopProfile = shop != null;
-      _approved = shop?['is_verified'] as bool? ?? false;
-      if (_approved) {
-        await _loadOrders();
-        _history = await ref.read(orderServiceProvider).getSupplierHistory(uid);
-        await _loadSelfDeliveries();
+    try {
+      final uid = supabase.auth.currentUser?.id;
+      if (uid != null) {
+        final shop = await supabase
+            .from('suppliers')
+            .select('is_verified')
+            .eq('id', uid)
+            .maybeSingle();
+        _hasShopProfile = shop != null;
+        _approved = shop?['is_verified'] as bool? ?? false;
+        if (_approved) {
+          await _loadOrders();
+          _history = await ref.read(orderServiceProvider).getSupplierHistory(uid);
+          await _loadSelfDeliveries();
+        }
       }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _loadOrders() async {

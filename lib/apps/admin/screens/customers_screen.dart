@@ -17,14 +17,30 @@ class _State extends State<AdminCustomersScreen> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    // users row carries whichever contact method the pilot is using.
-    final rows = await supabase.from('users').select().eq('role', 'customer');
-    _customers = (rows as List).cast<Map<String, dynamic>>();
-    if (mounted) setState(() => _loading = false);
+    try {
+      // users row carries whichever contact method the pilot is using.
+      // Stable order so the block/unblock toggle doesn't reshuffle the list
+      // (Postgres returns unordered rows in a different order after an update).
+      final rows = await supabase
+          .from('users')
+          .select()
+          .eq('role', 'customer')
+          .order('created_at', ascending: false);
+      _customers = (rows as List).cast<Map<String, dynamic>>();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _setActive(String id, bool active) async {
-    await supabase.from('users').update({'is_active': active}).eq('id', id);
+    try {
+      await supabase.from('users').update({'is_active': active}).eq('id', id);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not update: $e')));
+      }
+    }
     _load();
   }
 
