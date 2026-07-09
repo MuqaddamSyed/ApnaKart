@@ -38,7 +38,7 @@ dev_dependencies:
 # Provide the two source PNGs described in assets/branding/README.md first.
 flutter_launcher_icons:
   android: true
-  ios: true
+  ios: false                                   # flip to true once ios/ project exists
   remove_alpha_ios: true                       # iOS icons must be opaque
   image_path: "assets/branding/icon.png"       # 1024x1024, monogram on solid bg
   adaptive_icon_background: "#FFFFFF"           # Android adaptive background
