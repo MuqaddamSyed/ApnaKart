@@ -1,6 +1,6 @@
 /// App-wide constants and Phase-1 business rules.
 class AppConstants {
-  static const appName = 'ApnaKart';
+  static const appName = 'myMinto';
 
   // Delivery fee: flat, charged on every order regardless of amount.
   static const double flatDeliveryFee = 10.0;

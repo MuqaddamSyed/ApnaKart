@@ -1,11 +1,11 @@
 {
-  "name": "QuickKart Admin",
-  "short_name": "QuickKart",
+  "name": "myMinto Admin",
+  "short_name": "myMinto",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#F8F8F8",
   "theme_color": "#FF4500",
-  "description": "QuickKart admin dashboard",
+  "description": "myMinto admin dashboard",
   "orientation": "portrait-primary",
   "prefer_related_applications": false
 }

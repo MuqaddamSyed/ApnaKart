@@ -27,7 +27,7 @@ class _State extends ConsumerState<AdminShell> {
 
   // (title, subtitle) per page index.
   static const _meta = <(String, String)>[
-    ('Overview', 'Everything happening across ApnaKart today'),
+    ('Overview', 'Everything happening across myMinto today'),
     ('Orders', 'Every customer order, grouped by session'),
     ('Suppliers', 'Onboard, verify and manage shops'),
     ('Products', 'Per-supplier product catalog'),

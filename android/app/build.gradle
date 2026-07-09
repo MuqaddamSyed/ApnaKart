@@ -47,7 +47,7 @@ android {
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
         multiDexEnabled = true
-        resValue "string", "app_name", "ApnaKart"
+        resValue "string", "app_name", "myMinto"
     }
 
     // ---- Product flavors: one installable app each ----
@@ -58,17 +58,17 @@ android {
         customer {
             dimension = "app"
             applicationId = "com.quickkart.customer"
-            resValue "string", "app_name", "ApnaKart"
+            resValue "string", "app_name", "myMinto"
         }
         supplier {
             dimension = "app"
             applicationId = "com.quickkart.supplier"
-            resValue "string", "app_name", "ApnaKart Partner"
+            resValue "string", "app_name", "myMinto Partner"
         }
         delivery {
             dimension = "app"
             applicationId = "com.quickkart.delivery"
-            resValue "string", "app_name", "ApnaKart Delivery"
+            resValue "string", "app_name", "myMinto Delivery"
         }
     }
 
