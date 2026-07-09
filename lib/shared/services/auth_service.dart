@@ -4,6 +4,35 @@ import 'supabase_client.dart';
 
 /// Email-OTP auth + user-profile bootstrap.
 class AuthService {
+  // --- App Store / Play review bypass -------------------------------------
+  // OTP-only apps get rejected when the reviewer can't receive the code. This
+  // lets a reviewer sign in to ONE pre-created demo customer account without a
+  // real email: they enter [reviewerEmail] + [_reviewerCode] and the app signs
+  // in with the demo account's password instead of an OTP. The demo account is
+  // an ordinary customer with sample data — embedding these is intentional and
+  // safe. To disable after review, change the demo account's password in
+  // Supabase (sign-in then fails and the normal OTP path is unaffected).
+  static const reviewerEmail = 'demo-customer@myminto.in';
+  static const _reviewerCode = '424242';
+  static const _reviewerPassword = 'REDACTED-ROTATED';
+
+  bool isReviewer(String email) =>
+      email.trim().toLowerCase() == reviewerEmail;
+
+  /// If [email]/[code] match the reviewer demo credentials, sign in via
+  /// password and return the user id; otherwise return null so the normal OTP
+  /// path runs untouched.
+  Future<String?> tryReviewerBypass(String email, String code) async {
+    if (!isReviewer(email) || code.trim() != _reviewerCode) return null;
+    final res = await supabase.auth.signInWithPassword(
+      email: reviewerEmail,
+      password: _reviewerPassword,
+    );
+    final user = res.user;
+    if (user == null) throw Exception('Reviewer sign-in failed');
+    return user.id;
+  }
+
   /// Sends an OTP to the email address using Supabase Email Auth.
   Future<void> sendOTP(String email) async {
     await supabase.auth.signInWithOtp(email: email);

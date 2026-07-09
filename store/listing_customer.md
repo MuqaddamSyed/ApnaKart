@@ -85,11 +85,12 @@ Support: customer_care@myminto.in
 
 ## Reviewer / demo notes (paste into App Store "App Review Information" and Play testing notes)
 ```
-Demo login (Customer app):
-  Email: <create a demo customer email>
-  OTP: sign-in uses an email one-time password. Please use the demo account
-       below, or contact us and we will provide a current OTP.
-  Email: demo-customer@myminto.in   (set this up before submitting)
+Demo login (Customer app) — no email needed:
+  1. On the login screen, enter email:  demo-customer@myminto.in
+  2. Tap "Send OTP".
+  3. Enter code:  424242
+  4. Tap "Verify & Continue".
+  You are signed in to a demo customer account with sample data.
 
 Payment: All orders are Cash on Delivery (physical goods). There are NO in-app
 digital purchases. No card details are collected.
@@ -97,11 +98,10 @@ digital purchases. No card details are collected.
 Location: used only while the app is in use, to show nearby shops and deliver
 orders. No background location.
 
-To test: sign in → set/allow location → open a shop → add items → place order
-(Cash on Delivery) → the order confirmation and live tracking screen appear.
+To test: sign in with the demo account above → allow location → open a shop →
+add items → place order (Cash on Delivery) → order confirmation and live
+tracking screen appear.
 ```
 
-> ⚠️ Apple's OTP-by-email login is a common review snag. Before submitting,
-> either (a) create a demo account whose OTP you can retrieve and share, or
-> (b) add a temporary reviewer bypass code. Tell me if you want option (b)
-> wired in — it's a small, well-contained change.
+> ✅ Reviewer bypass is implemented (AuthService). Before submitting you must
+> create the demo account — see `store/DEMO_ACCOUNT_SETUP.md`.

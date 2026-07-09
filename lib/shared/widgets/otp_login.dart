@@ -39,6 +39,11 @@ class _OtpLoginState extends ConsumerState<OtpLogin> {
   Future<void> _send() async {
     final emailErr = Validators.email(_emailCtrl.text);
     if (emailErr != null) return setState(() => _error = emailErr);
+    // Store-review demo account: skip sending a real OTP, go straight to the
+    // code screen (the reviewer enters the fixed bypass code there).
+    if (ref.read(authServiceProvider).isReviewer(_emailCtrl.text)) {
+      return setState(() { _otpSent = true; _error = null; });
+    }
     if (widget.collectPhone) {
       final phoneErr = Validators.phone(_phoneCtrl.text);
       if (phoneErr != null) return setState(() => _error = phoneErr);
@@ -59,6 +64,16 @@ class _OtpLoginState extends ConsumerState<OtpLogin> {
     try {
       final auth = ref.read(authServiceProvider);
       final email = _emailCtrl.text.trim();
+      // Store-review bypass: fixed demo account, no real OTP needed. The demo
+      // account already has a complete profile, so skip the phone/row setup.
+      final reviewerId = await auth.tryReviewerBypass(email, _otpCtrl.text.trim());
+      if (reviewerId != null) {
+        final existing = await auth.getCurrentUser();
+        final isNew = existing == null || existing.role == null;
+        ref.read(currentUserIdProvider.notifier).state = reviewerId;
+        widget.onSuccess(reviewerId, isNew);
+        return;
+      }
       final id = await auth.verifyOTP(email, _otpCtrl.text.trim());
       final existing = await auth.getCurrentUser();
       final isNew = existing == null || existing.role == null;
