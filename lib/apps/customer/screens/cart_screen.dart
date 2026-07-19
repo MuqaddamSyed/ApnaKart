@@ -6,6 +6,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../shared/services/providers.dart';
 import '../../../shared/services/address_service.dart';
+import '../../../shared/services/location_service.dart';
 import '../../../shared/services/supabase_client.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/cart_store.dart';
@@ -21,6 +22,9 @@ class CartScreen extends ConsumerStatefulWidget {
 class _CartScreenState extends ConsumerState<CartScreen> {
   final _addressCtrl = TextEditingController();
   bool _placing = false;
+  bool _locating = false;
+  bool _pinnedLive = false;   // coords came from a live GPS fix
+  double? _accuracyM;
   double? _lat;
   double? _lng;
   // supplierId -> shop name, so the cart shows real names not id codes.
@@ -64,6 +68,45 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         _addressCtrl.text = addr;
       }
     });
+  }
+
+  /// Capture the customer's current GPS location as the delivery pin.
+  Future<void> _useCurrentLocation() async {
+    if (_locating) return;
+    final svc = ref.read(locationServiceProvider);
+    setState(() => _locating = true);
+    try {
+      final fix = await svc.getFix();
+      setState(() {
+        _lat = fix.latitude;
+        _lng = fix.longitude;
+        _accuracyM = fix.accuracyM;
+        _pinnedLive = true;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(fix.isPrecise
+            ? 'Current location pinned for delivery.'
+            : 'Location pinned but approximate (±${fix.accuracyM.round()}m). '
+                'Move to an open area and tap again for a precise pin.'),
+      ));
+    } on LocationFailure catch (f) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(f.message),
+        action: f.settingsCanFix
+            ? SnackBarAction(
+                label: 'SETTINGS', onPressed: () => svc.openSystemSettings(f))
+            : null,
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not get location: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
   }
 
   Future<void> _placeOrder() async {
@@ -282,13 +325,26 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             ];
           }),
           const SizedBox(height: 12),
+          const Text('Delivery address',
+              style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
           Row(children: [
-            const Text('Delivery address',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-            const Spacer(),
-            TextButton.icon(
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: _locating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.my_location, size: 18),
+                label: Text(_locating ? 'Locating…' : 'Use current location'),
+                onPressed: _locating ? null : _useCurrentLocation,
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
               icon: const Icon(Icons.bookmark_border, size: 18),
-              label: const Text('Saved addresses'),
+              label: const Text('Saved'),
               onPressed: () async {
                 final picked =
                     await context.push<bool>('${Routes.addresses}?select=1');
@@ -299,6 +355,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     _addressCtrl.text = a.text;
                     _lat = a.lat;
                     _lng = a.lng;
+                    _pinnedLive = false;
+                    _accuracyM = null;
                   });
                 }
               },
@@ -313,6 +371,24 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               prefixIcon: Icon(Icons.location_on_outlined),
             ),
           ),
+          if (_lat != null && _lng != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(children: [
+                Icon(Icons.check_circle,
+                    size: 15, color: AppColors.secondary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _pinnedLive
+                        ? 'Live location pinned${_accuracyM != null ? ' (±${_accuracyM!.round()}m)' : ''} — agent will be guided here'
+                        : 'Delivery location set',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ),
+              ]),
+            ),
           const SizedBox(height: 16),
           Card(
             child: Padding(
