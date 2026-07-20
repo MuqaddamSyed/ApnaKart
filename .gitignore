@@ -49,3 +49,9 @@ app.*.map.json
 
 # Supabase CLI local state
 **/.temp/
+
+# webstore
+webstore/node_modules
+webstore/dist
+webstore/.env
+webstore/.env.local
